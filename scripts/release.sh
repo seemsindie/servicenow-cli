@@ -157,10 +157,36 @@ if [ -n "$REPO_URL" ]; then
   echo "  npm package:      https://www.npmjs.com/package/$(node -p 'require("./package.json").name')"
 fi
 
-# If gh is installed, try to open the Actions tab
+# If gh is installed, stream the workflow run (no prompt — we resolve the run ID ourselves)
 if command -v gh >/dev/null 2>&1; then
   echo ""
-  echo "→ streaming workflow run (Ctrl-C to detach; release continues in CI)"
-  sleep 3  # let the push settle on GitHub
-  gh run watch --exit-status 2>/dev/null || echo "(no matching run yet; check the Actions tab)"
+  echo "→ waiting for workflow run to register on GitHub..."
+  RUN_ID=""
+  for attempt in 1 2 3 4 5 6 7 8; do
+    sleep 2
+    RUN_ID="$(
+      gh run list \
+        --workflow release.yml \
+        --event push \
+        --limit 5 \
+        --json databaseId,headBranch,headSha,status \
+        --jq "[.[] | select(.headSha == \"$(git rev-parse HEAD)\")] | .[0].databaseId" \
+      2>/dev/null || true
+    )"
+    if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+      break
+    fi
+  done
+
+  if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+    echo "→ streaming run $RUN_ID (Ctrl-C to detach; release continues in CI)"
+    gh run watch "$RUN_ID" --exit-status || {
+      echo ""
+      echo "✗ workflow failed — see logs:"
+      echo "  gh run view $RUN_ID --log-failed --repo \$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+      exit 1
+    }
+  else
+    echo "(couldn't find the matching run; check the Actions tab manually)"
+  fi
 fi
