@@ -1,0 +1,32 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - run: ./scripts/build-release.sh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/sn-linux-x64
+            dist/sn-darwin-arm64
+            dist/sn-darwin-x64
+            dist/SHA256SUMS
+          draft: false
+          prerelease: false
+          generate_release_notes: true

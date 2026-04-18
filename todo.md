@@ -1,89 +1,74 @@
 # servicenow-cli — TODO
 
-Tracks feature work by phase. Check each item as it's shipped.
+Tracks feature work by phase.
 
-## Phase 1: MVP (shipped)
+## Phase 1: MVP (shipped, v0.1.0)
 
-### Infrastructure
-- [x] `package.json`, `tsconfig.json`, `bin/sn`, `.gitignore`
-- [x] `constants.ts` (BIN_NAME single source)
-- [x] Port `auth/`, `client/`, `utils/` from MCP server
-- [x] `config.ts` (XDG discovery + Zod)
-- [x] `context.ts` (CliContext)
-- [x] Middleware: error-handler, stdin
-- [x] Formatters: table, json, field-presets, colorize
-- [x] Spinner util
-- [x] Interactive instance wizard (first-run bootstrap)
-- [x] `cli.ts` + `commands/index.ts` (citty tree)
-- [x] Global flag plumbing
+- [x] Infrastructure: package.json, tsconfig, bin/sn, constants, auth/client/utils port, config loader (XDG), CliContext, middleware, formatters (table, json), instance wizard, citty tree
+- [x] Commands: instance, incident, change, user, group, search, table
+- [x] Unit tests + README
+- [x] `tests/integration/incident-lifecycle.test.ts`
 
-### Commands
-- [x] `instance` — list, use, info, add, remove, current
-- [x] `incident` — list, get, create, update, resolve, close, reopen, comment, work-note
-- [x] `change` — list, get, create, update, submit-approval, approve, reject, add-task, comment, work-note
-- [x] `user` — list, get, create, update
-- [x] `group` — list, create, update, add-members, remove-members
-- [x] `search` — natural-language query
-- [x] `table` — query, get, create, update, delete
+## Phase 2: Platform Developer Loop (shipped, v0.2.0)
 
-### Phase 1 exit criteria
-- [x] Help text renders for every leaf command
-- [x] Unit tests for formatters, resolvers, config loader, error handler, NL search
-- [x] README with quick start
-- [x] End-to-end PDI smoke test (`tests/integration/incident-lifecycle.test.ts`)
+- [x] Shared: `state.ts` (sidecar), `apply-session-state.ts`, `_script-crud.ts` factory, `script-map.ts`, `trigger-poll.ts`
+- [x] Commands: update-set, scope, script (pull/push/watch), run-script, business-rule, client-script, ui-policy, ui-action, ui-script, script-include, schema, problem, request, ritm
+- [x] Integration tests: schema, problem, run-script, script-sync, phase2-smoke composite
+- [x] README updated
 
-## Phase 2: Platform Developer Loop (shipped)
+## Phase 3: Full parity & polish (shipped, v0.3.0)
 
 ### Shared infrastructure
-- [x] `src/utils/state.ts` — per-instance sidecar state (`~/.config/servicenow-cli/state/<instance>.json`)
-- [x] `src/utils/apply-session-state.ts` — best-effort session binding (sys_user_preference + concoursepicker)
-- [x] `src/commands/_script-crud.ts` — parameterized CRUD factory for 6 script domains
-- [x] `src/utils/script-map.ts` — SCRIPT_FIELD_MAP + fieldExtension + safeName
-- [x] `src/utils/trigger-poll.ts` — run-script --wait
+- [x] `_domain-crud.ts` — generic CRUD factory (generalised from `_script-crud.ts`)
+- [x] `_script-crud.ts` — back-compat alias over `_domain-crud.ts`
+- [x] `workflow-yaml.ts` — YAML parser + Zod schema for `workflow create-full`
+- [x] `binary-upload.ts` — multipart file upload for attachments
+- [x] `resolve-ci.ts` — cmdb_rel_type name → sys_id resolver
+- [x] `client.requestBinary` — raw body uploads
+- [x] `client.request({ expect404 })` — suppress expected-404 ERROR log (used by trigger-poll)
 
 ### Commands
-- [x] `update-set` — list, get, create, update, use, current, commit, clone, add, move
-- [x] `scope` — current, set
-- [x] `script` — pull, push, watch (fs.watch, 300ms debounce)
-- [x] `run-script` — background script via sys_trigger (optional --wait)
-- [x] `script-include`, `business-rule`, `client-script`, `ui-policy`, `ui-action`, `ui-script` (list/get/create/update/delete each, via factory)
-- [x] `schema` — tables, discover, field
-- [x] `problem` — list, get, create, update, close, comment, work-note
-- [x] `request` — list, get, submit (custom `/order_now` endpoint)
-- [x] `ritm` — list, get, update
+- [x] kb — list, base-create, category-create, article-{list,get,create,update,publish}
+- [x] catalog — list, item {list, get, update, move, validate, recommend, variable {list, create, update}}, category {list, create, update}
+- [x] workflow — list, get, create, update, delete, activity-add, transition-add, publish, create-full (YAML)
+- [x] flow — list, get, create, variables, variable-add, stages
+- [x] rest-api — list, get, create, update + resource {create, update, delete}
+- [x] widget — list, get, create, update, delete (via factory, fileArgs for all script fields)
+- [x] ui-page — list, get, create, update, delete (via factory, fileArgs for html/client-script/processing-script)
+- [x] story, epic, task, project — list, get, create, update, delete (each, via factory)
+- [x] ci — list, get, create, relationships, relate
+- [x] attachment — list, get, upload
+- [x] batch — create, update, delete (sequential default, --parallel)
+- [x] aggregate — single leaf, /api/now/stats/<table>
+- [x] import-set — create, run-transform
+- [x] completion — bash, zsh, fish
 
-### Phase 2 exit criteria
-- [x] Help text for every new leaf
-- [x] Unit tests pass (`bun test` — 56 tests)
-- [x] Integration tests pass on dev PDI (`RUN_INTEGRATION=1 bun test` — 9 tests)
-- [x] README updated: update-set workflow, script sync workflow, run-script examples, caveats
-- [x] Composite `tests/integration/phase2-smoke.test.ts` walks full platform-dev flow
+### Polish
+- [x] CSV + YAML formatters (with unit tests)
+- [x] `formatters/index.ts` dispatch to csv/yaml
+- [x] man/sn.1 roff page
+- [x] `scripts/build-release.sh` (linux-x64, darwin-arm64, darwin-x64)
+- [x] `.github/workflows/release.yml` (fires on `v*` tag push)
 
-### Known limitations (documented in README)
-- **Update-set binding via REST is best-effort.** SN's per-user-session mechanism doesn't consistently honour the preference flip on stateless Basic-Auth writes.
-- **Sidecar state races** when parallel invocations target the same instance. Prefer `--update-set` / `--scope` flags in automation.
+### Phase 3 exit criteria
+- [x] `bun run typecheck` clean
+- [x] `bun test` — all unit tests pass (63 of 72, 9 env-gated integration tests skipped)
+- [x] Compiled binaries for 3 targets produced locally
+- [x] Bash completion script sources without errors (`bash -n`)
+- [x] README updated with new command sections
+- [ ] v0.3.0 tag + GitHub Release (push tag to trigger release.yml)
 
-## Phase 3: Full parity & polish
+## Known limitations (documented in README / per-command help)
 
-- [ ] `kb` — base-create, category-create, article-list, article-get, article-create, article-update, article-publish
-- [ ] `catalog` — list, items, item-get, variables, category-create, category-update, move-items, validate, recommend
-- [ ] `workflow` — list, get, create, create-full, publish, delete, activity-add, transition-add
-- [ ] `flow` — list, get, create, stages, variables, variable-add
-- [ ] `rest-api` — list, get, create, update, resource-create/update/delete
-- [ ] `widget`, `ui-page` — list, get, create, update, delete
-- [ ] `story`, `epic`, `task`, `project` (agile) — list, create, update
-- [ ] `ci` (CMDB) — list, get, create, relationships, relate
-- [ ] `attachment` — list, get, upload
-- [ ] `batch` — create, update, delete (parallel ops with progress)
-- [ ] `aggregate` — count/sum/avg/min/max
-- [ ] `import` — set-create, transform
-- [ ] CSV + YAML formatters
-- [ ] Shell completions (`sn completion bash|zsh|fish`)
-- [ ] Single-binary release pipeline (linux-x64, darwin-arm64, darwin-x64)
-- [ ] Man page
+- **Update-set binding via stateless Basic-Auth REST is best-effort.** SN's per-user-session mechanism doesn't reliably honour the sys_user_preference flip. Prefer setting in the browser first, or attach via `sn update-set add`.
+- **Sidecar state races** when parallel invocations target the same instance. Use `--update-set`/`--scope` in automation.
+- **Flow Designer logic blocks are UI-only** — REST only supports basic flow skeleton + variables/stages.
+- **CI relationships** accept either a `cmdb_rel_type` sys_id or an exact name (e.g. "Parent of") — resolved by `resolve-ci.ts`.
 
-## Cross-cutting (ongoing)
+## Phase 4 (ideas, not committed)
 
-- [ ] Suppress ERROR log in client during expected 404s (e.g. `trigger-poll` seeing auto-deleted triggers)
-- [ ] Integration test parallelism — consider running files sequentially to avoid sidecar races
-- [ ] Secret storage (macOS keychain / libsecret) instead of plaintext passwords
+- [ ] OS keyring secret storage (macOS Keychain, libsecret)
+- [ ] Interactive TUI mode for `sn incident list` — live refresh, keyboard shortcuts
+- [ ] `sn edit <domain> <id>` — open $EDITOR on relevant fields, diff-apply on save
+- [ ] Approvals workflow UI (`sn change pending-approvals --mine`)
+- [ ] Integration tests covering each Phase 3 domain

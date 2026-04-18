@@ -5,6 +5,8 @@
 import type { CliContext } from "../context.ts";
 import { renderJson } from "./json.ts";
 import { renderTable } from "./table.ts";
+import { renderCsv } from "./csv.ts";
+import { renderYaml } from "./yaml.ts";
 import { getFieldPreset } from "./field-presets.ts";
 
 export interface OutputOptions {
@@ -40,10 +42,28 @@ export function renderOutput(
     case "table":
       return renderTableOutput(ctx, data, opts);
     case "csv":
+      return renderCsvOutput(ctx, data, opts);
     case "yaml":
-      // Phase 3: CSV/YAML formatters. For now, fall back to JSON.
-      return renderJson(data);
+      return renderYaml(data);
   }
+}
+
+function renderCsvOutput(
+  ctx: CliContext,
+  data: Array<Record<string, unknown>> | Record<string, unknown>,
+  opts: OutputOptions
+): string {
+  const records = Array.isArray(data) ? data : [data];
+  const fieldsFromFlag = ctx.flags.fields
+    ?.split(",")
+    .map((f) => f.trim())
+    .filter(Boolean);
+  const columns =
+    opts.fields ??
+    fieldsFromFlag ??
+    (opts.table ? getFieldPreset(opts.table) : undefined) ??
+    inferColumns(records);
+  return renderCsv(records, { columns });
 }
 
 function renderTableOutput(

@@ -4,7 +4,7 @@
 
 ## Status
 
-Phase 2 shipped. Covers:
+Phase 3 shipped (v0.3.0). Full parity with [servicenow-mcp-server](../servicenow-mcp-server) across 35 top-level command domains.
 
 ### Ticketing & workflow
 - `sn incident` — list, get, create, update, resolve, close, reopen, comment, work-note
@@ -18,19 +18,39 @@ Phase 2 shipped. Covers:
 - `sn scope` — current, set
 - `sn script` — pull, push, watch (local `.sn-sync.json` manifest, `fs.watch` debounced)
 - `sn run-script` — execute server-side JS via `sys_trigger`, optional `--wait <seconds>`
-- `sn business-rule`, `sn client-script`, `sn ui-policy`, `sn ui-action`, `sn ui-script`, `sn script-include` — list, get, create, update, delete (each)
+- `sn business-rule`, `sn client-script`, `sn ui-policy`, `sn ui-action`, `sn ui-script`, `sn script-include`, `sn widget`, `sn ui-page` — list, get, create, update, delete (each)
+- `sn rest-api` — list, get, create, update + `resource {create, update, delete}` for operations
+- `sn workflow` — list, get, create, update, delete, activity-add, transition-add, publish, **create-full -f workflow.yaml**
+- `sn flow` — list, get, create, variables, variable-add, stages (logic blocks are UI-only)
 - `sn schema` — tables, discover, field
 
-### Admin
+### Content
+- `sn kb` — list, base-create, category-create, article-{list,get,create,update,publish}
+- `sn catalog` — list + grouped: `item {list, get, update, move, validate, recommend, variable {list, create, update}}` + `category {list, create, update}`
+
+### Agile
+- `sn story`, `sn epic`, `sn task`, `sn project` — list, get, create, update, delete (each)
+
+### CMDB
+- `sn ci` — list, get, create, relationships, relate (with cmdb_rel_type name resolution)
+
+### Bulk / admin
+- `sn attachment` — list, get (with --download), upload (binary-safe multipart)
+- `sn batch` — create, update, delete (sequential by default; `--parallel` for `Promise.allSettled`)
+- `sn aggregate <table> <stat>` — COUNT/SUM/AVG/MIN/MAX via `/api/now/stats/<table>`
+- `sn import-set` — create (staging), run-transform
 - `sn instance` — list, use, info, add, remove, current
 - `sn user` — list, get, create, update
 - `sn group` — list, create, update, add-members, remove-members
 
 ### Escape hatches
 - `sn search` — natural-language → encoded query
-- `sn table` — generic Table API (query/get/create/update/delete) for any table not yet wrapped
+- `sn table` — generic Table API (query/get/create/update/delete) for any table
 
-Phase 3 (KB, catalog, workflows, flow designer, widgets, UI pages, agile, CMDB, batch, attachments, completions) tracked in [todo.md](./todo.md).
+### Output, completion, release
+- Output: `-o json | table | csv | yaml` (TTY → table, pipe → json)
+- `sn completion {bash, zsh, fish}` — emits completion scripts (auto-enumerates all commands)
+- Prebuilt binaries for linux-x64, darwin-arm64, darwin-x64 via `scripts/build-release.sh` / GitHub Releases
 
 ## Install
 

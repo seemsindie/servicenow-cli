@@ -63,7 +63,8 @@ export class ServiceNowClient {
   async getRecord(
     tableName: string,
     sysId: string,
-    params: Pick<SNQueryParams, "sysparm_fields" | "sysparm_display_value" | "sysparm_exclude_reference_link"> = {}
+    params: Pick<SNQueryParams, "sysparm_fields" | "sysparm_display_value" | "sysparm_exclude_reference_link"> = {},
+    opts: { expect404?: boolean } = {}
   ): Promise<SNRecord> {
     const query = new URLSearchParams();
     if (params.sysparm_fields) query.set("sysparm_fields", params.sysparm_fields);
@@ -72,7 +73,7 @@ export class ServiceNowClient {
 
     const qs = query.toString();
     const url = `${this.baseUrl}/api/now/table/${tableName}/${sysId}${qs ? `?${qs}` : ""}`;
-    const response = await this.request("GET", url);
+    const response = await this.request("GET", url, undefined, opts);
     const data = (await response.json()) as SNSingleResponse;
     return data.result;
   }
@@ -130,6 +131,52 @@ export class ServiceNowClient {
     return this.request(method, url, body);
   }
 
+  /**
+   * Raw binary/pre-serialised body request — for file uploads and other non-JSON
+   * payloads. Sets the caller-supplied Content-Type and sends `body` as-is.
+   */
+  async requestBinary(
+    method: string,
+    path: string,
+    body: ArrayBufferView | ArrayBuffer | Blob | string,
+    contentType: string
+  ): Promise<Response> {
+    const url = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
+    const authHeaders = await this.auth.getHeaders();
+
+    const headers: Record<string, string> = {
+      ...authHeaders,
+      Accept: "application/json",
+      "Content-Type": contentType,
+    };
+
+    logger.debug(`${method} ${url} (binary, ${contentType})`);
+
+    let response: Response;
+    try {
+      const init = {
+        method,
+        headers,
+        body,
+        signal: AbortSignal.timeout(this.requestTimeoutMs),
+      } as unknown as RequestInit;
+      response = await fetch(url, init);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        throw new Error(`Request timed out after ${this.requestTimeoutMs}ms: ${method} ${url}`);
+      }
+      throw err;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      logger.error(`${method} ${url} → ${response.status}: ${text.slice(0, 200)}`);
+      throw mapResponseError(response.status, text);
+    }
+
+    return response;
+  }
+
   // ── Internal ────────────────────────────────────────────
 
   private buildTableUrl(tableName: string, params: SNQueryParams): string {
@@ -150,7 +197,8 @@ export class ServiceNowClient {
   private async request(
     method: string,
     url: string,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    opts: { expect404?: boolean } = {}
   ): Promise<Response> {
     const authHeaders = await this.auth.getHeaders();
 
@@ -184,7 +232,10 @@ export class ServiceNowClient {
 
     if (!response.ok) {
       const text = await response.text();
-      logger.error(`${method} ${url} → ${response.status}: ${text.slice(0, 200)}`);
+      // Skip the error log when the caller expects a 404 (e.g. polling a self-deleting trigger).
+      if (!(opts.expect404 && response.status === 404)) {
+        logger.error(`${method} ${url} → ${response.status}: ${text.slice(0, 200)}`);
+      }
       throw mapResponseError(response.status, text);
     }
 

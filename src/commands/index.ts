@@ -20,6 +20,23 @@ import script from "./script/index.ts";
 import runScript from "./run-script.ts";
 import request from "./request/index.ts";
 import ritm from "./ritm/index.ts";
+import story from "./story/index.ts";
+import epic from "./epic/index.ts";
+import task from "./task/index.ts";
+import project from "./project/index.ts";
+import ci from "./ci/index.ts";
+import widget from "./widget/index.ts";
+import uiPage from "./ui-page/index.ts";
+import restApi from "./rest-api/index.ts";
+import aggregate from "./aggregate.ts";
+import importSet from "./import-set/index.ts";
+import attachment from "./attachment/index.ts";
+import kb from "./kb/index.ts";
+import catalog from "./catalog/index.ts";
+import flow from "./flow/index.ts";
+import workflow from "./workflow/index.ts";
+import batch from "./batch/index.ts";
+import completion from "./completion/index.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -43,4 +60,21 @@ export const subCommands: Record<string, CommandDef> = {
   "run-script": runScript,
   request,
   ritm,
+  story,
+  epic,
+  task,
+  project,
+  ci,
+  widget,
+  "ui-page": uiPage,
+  "rest-api": restApi,
+  aggregate,
+  "import-set": importSet,
+  attachment,
+  kb,
+  catalog,
+  flow,
+  workflow,
+  batch,
+  completion,
 };

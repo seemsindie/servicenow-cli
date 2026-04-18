@@ -25,9 +25,12 @@ export async function pollTrigger(
   while (Date.now() < deadline) {
     let record: Record<string, unknown>;
     try {
-      record = await client.getRecord("sys_trigger", sysId, {
-        sysparm_fields: "sys_id,state,name,next_action",
-      });
+      record = await client.getRecord(
+        "sys_trigger",
+        sysId,
+        { sysparm_fields: "sys_id,state,name,next_action" },
+        { expect404: true }
+      );
     } catch (err) {
       // If trigger self-deleted after execution, getRecord 404s — treat as "executed"
       const message = err instanceof Error ? err.message : String(err);

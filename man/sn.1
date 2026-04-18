@@ -1,0 +1,123 @@
+.TH SN 1 "April 2026" "servicenow-cli 0.3.0" "User Commands"
+.SH NAME
+sn \- command-line interface for ServiceNow
+.SH SYNOPSIS
+.B sn
+\fIdomain\fR \fIaction\fR [\fB--flag\fR \fIvalue\fR]...
+.SH DESCRIPTION
+.B sn
+is a multi-instance command-line interface for ServiceNow, covering ticketing (incident, change, problem, request, ritm),
+platform development (business-rule, client-script, ui-policy, ui-action, ui-script, script-include, widget, ui-page),
+content management (kb, catalog, workflow, flow, rest-api), CMDB (ci), agile (story, epic, task, project),
+and bulk operations (batch, aggregate, attachment, import-set).
+
+Config lives at
+\fB$XDG_CONFIG_HOME/servicenow-cli/config.json\fR
+(default \fB~/.config/servicenow-cli/config.json\fR). Run
+.B sn instance add
+to create or extend it interactively.
+
+.SH GLOBAL OPTIONS
+.TP
+.BR \-i ", " \-\-instance " " \fIname\fR
+Target a specific configured instance.
+.TP
+.BR \-o ", " \-\-output " " \fIformat\fR
+Output format: json, table, csv, yaml. TTY default is table, pipe default is json.
+.TP
+.B \-\-config \fIpath\fR
+Explicit config file.
+.TP
+.B \-\-fields \fIcsv\fR
+Override columns in table/csv output.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress INFO/WARN log lines.
+.TP
+.B \-\-debug
+Enable DEBUG logging.
+.TP
+.B \-\-no-color
+Disable ANSI colors.
+
+.SH WRITE-COMMAND OPTIONS
+Create/update/delete commands additionally accept:
+.TP
+.B \-\-update-set \fIsys_id\fR
+Override current update-set for this call.
+.TP
+.B \-\-scope \fIsys_id\fR
+Override current scope for this call.
+.TP
+.B \-\-no-apply-state
+Skip applying update-set/scope session state.
+
+.SH EXIT CODES
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Generic error.
+.TP
+.B 2
+Config error.
+.TP
+.B 3
+Auth error (HTTP 401).
+.TP
+.B 4
+Not found (HTTP 404).
+.TP
+.B 5
+Validation error (HTTP 400/409 or Zod).
+.TP
+.B 64
+User cancelled.
+
+.SH EXAMPLES
+.TP
+List active incidents:
+.B sn incident list --state 2 --priority 1
+.TP
+Create an incident:
+.B sn incident create --short-desc "Printer jam" --urgency 2
+.TP
+Pull a script include to a local file, edit, push:
+.B sn script pull <sys_id>; $EDITOR sn-scripts/<file>; sn script push sn-scripts/<file>
+.TP
+Execute server-side script + wait for result:
+.B sn run-script --code "gs.info('hi');" --wait 10
+.TP
+Aggregate incident counts by state:
+.B sn aggregate incident count --group-by state
+.TP
+Upload an attachment:
+.B sn attachment upload incident <sys_id> ./report.pdf
+
+.SH COMPLETION
+.TP
+.B sn completion bash
+Print bash completion script. Add to ~/.bashrc:
+\fIeval "$(sn completion bash)"\fR
+.TP
+.B sn completion zsh
+Print zsh completion script.
+.TP
+.B sn completion fish
+Print fish completion script.
+
+.SH FILES
+.TP
+.B ~/.config/servicenow-cli/config.json
+Main config file — instances, auth, output defaults.
+.TP
+.B ~/.config/servicenow-cli/state/<instance>.json
+Per-instance sidecar — current update-set, current scope.
+.TP
+.B ./.sn-sync.json
+Local script-sync manifest (created by
+.BR "sn script pull" ).
+
+.SH SEE ALSO
+README and full command reference at https://github.com/seemsindie/servicenow-cli
