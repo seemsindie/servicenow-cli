@@ -1,0 +1,742 @@
+{
+  "_metadata": {
+    "description": "Static metadata for common ServiceNow tables. Used for smart defaults (display_field, required_fields) without hitting live API.",
+    "total_tables": 100,
+    "version": "1.0.0"
+  },
+  "incident": {
+    "label": "Incident",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "state", "priority", "urgency", "impact", "category", "subcategory", "caller_id", "assigned_to", "assignment_group", "description", "work_notes", "opened_at", "resolved_at", "closed_at", "close_code", "close_notes"]
+  },
+  "change_request": {
+    "label": "Change Request",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "type", "state", "risk", "impact", "priority", "assigned_to", "assignment_group", "start_date", "end_date", "justification", "implementation_plan", "backout_plan", "test_plan"]
+  },
+  "change_task": {
+    "label": "Change Task",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description", "change_request"],
+    "common_fields": ["number", "short_description", "state", "assigned_to", "assignment_group", "change_request", "planned_start_date", "planned_end_date"]
+  },
+  "problem": {
+    "label": "Problem",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "state", "priority", "urgency", "impact", "assigned_to", "assignment_group", "category", "subcategory", "known_error", "workaround", "cause_notes", "fix_notes"]
+  },
+  "problem_task": {
+    "label": "Problem Task",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description", "problem"],
+    "common_fields": ["number", "short_description", "state", "assigned_to", "assignment_group", "problem"]
+  },
+  "sc_request": {
+    "label": "Request",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": [],
+    "common_fields": ["number", "short_description", "state", "requested_for", "opened_by", "delivery_address", "special_instructions", "price"]
+  },
+  "sc_req_item": {
+    "label": "Requested Item",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": [],
+    "common_fields": ["number", "short_description", "state", "request", "cat_item", "assigned_to", "assignment_group", "quantity", "price", "stage"]
+  },
+  "sc_task": {
+    "label": "Catalog Task",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "state", "assigned_to", "assignment_group", "request_item"]
+  },
+  "task": {
+    "label": "Task",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": [],
+    "common_fields": ["number", "short_description", "state", "priority", "assigned_to", "assignment_group", "active", "opened_at", "closed_at", "description", "work_notes", "comments"]
+  },
+  "sys_user": {
+    "label": "User",
+    "key_field": "user_name",
+    "display_field": "name",
+    "required_fields": ["user_name"],
+    "common_fields": ["user_name", "first_name", "last_name", "name", "email", "phone", "mobile_phone", "department", "title", "manager", "active", "roles", "company", "location"]
+  },
+  "sys_user_group": {
+    "label": "Group",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "manager", "parent", "type", "active", "email", "default_assignee"]
+  },
+  "sys_user_role": {
+    "label": "Role",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "suffix", "elevated_privilege"]
+  },
+  "sys_user_grmember": {
+    "label": "Group Member",
+    "key_field": "sys_id",
+    "display_field": "user",
+    "required_fields": ["group", "user"],
+    "common_fields": ["group", "user"]
+  },
+  "sys_user_has_role": {
+    "label": "User Role",
+    "key_field": "sys_id",
+    "display_field": "role",
+    "required_fields": ["user", "role"],
+    "common_fields": ["user", "role", "state", "inherited"]
+  },
+  "cmdb_ci": {
+    "label": "Configuration Item",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "sys_class_name", "category", "subcategory", "asset", "assigned_to", "support_group", "operational_status", "install_status", "ip_address", "dns_domain", "company"]
+  },
+  "cmdb_ci_server": {
+    "label": "Server",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "host_name", "ip_address", "os", "os_version", "cpu_count", "ram", "disk_space", "classification", "environment"]
+  },
+  "cmdb_ci_service": {
+    "label": "Business Service",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "service_classification", "service_status", "owned_by", "managed_by", "used_for", "busines_criticality"]
+  },
+  "cmdb_ci_computer": {
+    "label": "Computer",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "host_name", "ip_address", "os", "os_version", "cpu_type", "cpu_count", "ram", "disk_space"]
+  },
+  "cmdb_ci_database": {
+    "label": "Database",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "type", "version", "port", "instance_name", "host"]
+  },
+  "cmdb_ci_app_server": {
+    "label": "Application Server",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "running_process", "port", "host"]
+  },
+  "cmdb_rel_ci": {
+    "label": "CI Relationship",
+    "key_field": "sys_id",
+    "display_field": "type",
+    "required_fields": ["parent", "child", "type"],
+    "common_fields": ["parent", "child", "type"]
+  },
+  "kb_knowledge": {
+    "label": "Knowledge Article",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description", "kb_knowledge_base"],
+    "common_fields": ["number", "short_description", "text", "kb_knowledge_base", "kb_category", "workflow_state", "author", "published", "valid_to", "rating", "view_count"]
+  },
+  "kb_knowledge_base": {
+    "label": "Knowledge Base",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title"],
+    "common_fields": ["title", "description", "owner", "active", "kb_managers_group"]
+  },
+  "kb_category": {
+    "label": "KB Category",
+    "key_field": "label",
+    "display_field": "label",
+    "required_fields": ["label"],
+    "common_fields": ["label", "value", "parent_id", "active"]
+  },
+  "sc_catalog": {
+    "label": "Catalog",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title"],
+    "common_fields": ["title", "description", "manager", "active"]
+  },
+  "sc_cat_item": {
+    "label": "Catalog Item",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "short_description", "description", "category", "sc_catalogs", "active", "price", "delivery_time", "order", "group", "workflow"]
+  },
+  "sc_cat_item_category": {
+    "label": "Catalog Category",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title"],
+    "common_fields": ["title", "description", "sc_catalog", "parent", "active", "icon", "order"]
+  },
+  "item_option_new": {
+    "label": "Variable",
+    "key_field": "name",
+    "display_field": "question_text",
+    "required_fields": ["name", "cat_item", "type"],
+    "common_fields": ["name", "question_text", "type", "cat_item", "order", "mandatory", "default_value", "reference", "lookup_table", "lookup_label"]
+  },
+  "sc_cat_item_producer": {
+    "label": "Record Producer",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "table_name"],
+    "common_fields": ["name", "table_name", "short_description", "script", "category", "active"]
+  },
+  "sys_script": {
+    "label": "Business Rule",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "collection"],
+    "common_fields": ["name", "collection", "when", "order", "script", "active", "filter_condition", "action_insert", "action_update", "action_delete", "action_query", "advanced"]
+  },
+  "sys_script_include": {
+    "label": "Script Include",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "api_name", "script", "active", "access", "client_callable", "description"]
+  },
+  "sys_ui_policy": {
+    "label": "UI Policy",
+    "key_field": "short_description",
+    "display_field": "short_description",
+    "required_fields": ["table", "short_description"],
+    "common_fields": ["table", "short_description", "conditions", "active", "on_load", "reverse_if_false", "global", "order", "script_true", "script_false"]
+  },
+  "sys_ui_action": {
+    "label": "UI Action",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "table"],
+    "common_fields": ["name", "table", "script", "active", "action_name", "client", "form_button", "form_context_menu", "form_link", "list_banner_button", "list_context_menu", "list_link", "order"]
+  },
+  "sys_ui_script": {
+    "label": "UI Script",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "script", "active", "global", "description"]
+  },
+  "sys_client_script": {
+    "label": "Client Script",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "table"],
+    "common_fields": ["name", "table", "type", "script", "active", "ui_type", "field_name", "order"]
+  },
+  "sys_ui_page": {
+    "label": "UI Page",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "html", "client_script", "processing_script", "category", "direct"]
+  },
+  "sys_update_set": {
+    "label": "Update Set",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "state", "application", "release_date", "installed_from", "sys_created_by"]
+  },
+  "sys_update_xml": {
+    "label": "Customer Update",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["update_set"],
+    "common_fields": ["name", "type", "target_name", "action", "update_set", "payload", "category"]
+  },
+  "wf_workflow": {
+    "label": "Workflow",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "table"],
+    "common_fields": ["name", "table", "description", "active"]
+  },
+  "wf_workflow_version": {
+    "label": "Workflow Version",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["workflow"],
+    "common_fields": ["name", "workflow", "published", "active", "checked_out", "checked_out_by"]
+  },
+  "wf_activity": {
+    "label": "Workflow Activity",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "workflow_version"],
+    "common_fields": ["name", "workflow_version", "activity_definition", "x", "y", "out_of_date"]
+  },
+  "sys_hub_flow": {
+    "label": "Flow",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "trigger_type", "run_as", "active", "status", "table"]
+  },
+  "sys_hub_flow_variable": {
+    "label": "Flow Variable",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "flow"],
+    "common_fields": ["name", "flow", "type", "label", "mandatory", "default_value"]
+  },
+  "sys_hub_flow_stage": {
+    "label": "Flow Stage",
+    "key_field": "label",
+    "display_field": "label",
+    "required_fields": ["flow"],
+    "common_fields": ["label", "flow", "order"]
+  },
+  "sys_web_service": {
+    "label": "Scripted REST API",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "namespace", "short_description", "active"]
+  },
+  "sys_ws_operation": {
+    "label": "Scripted REST Resource",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "web_service_definition"],
+    "common_fields": ["name", "web_service_definition", "http_method", "relative_path", "operation_script", "active"]
+  },
+  "sys_rest_message": {
+    "label": "REST Message",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "rest_endpoint", "authentication_type", "basic_auth_profile"]
+  },
+  "sys_rest_message_fn": {
+    "label": "REST Message Function",
+    "key_field": "function_name",
+    "display_field": "function_name",
+    "required_fields": ["function_name", "rest_message"],
+    "common_fields": ["function_name", "rest_message", "http_method", "rest_endpoint", "content"]
+  },
+  "sp_widget": {
+    "label": "Widget",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "id", "template", "css", "client_script", "script", "link", "description", "data_table"]
+  },
+  "sp_portal": {
+    "label": "Portal",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title", "url_suffix"],
+    "common_fields": ["title", "url_suffix", "default_page", "theme", "logo", "css_variables"]
+  },
+  "sp_page": {
+    "label": "Page",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title", "id"],
+    "common_fields": ["title", "id", "description", "category", "internal", "public"]
+  },
+  "sp_instance": {
+    "label": "Widget Instance",
+    "key_field": "sys_id",
+    "display_field": "widget",
+    "required_fields": ["widget"],
+    "common_fields": ["widget", "page", "column", "order", "css"]
+  },
+  "sp_header_footer": {
+    "label": "Header/Footer",
+    "key_field": "sys_id",
+    "display_field": "widget",
+    "required_fields": ["widget"],
+    "common_fields": ["widget", "internal"]
+  },
+  "rm_story": {
+    "label": "Story",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "description", "state", "priority", "story_points", "sprint", "product", "epic", "assigned_to", "acceptance_criteria", "blocked", "blocked_reason"]
+  },
+  "rm_epic": {
+    "label": "Epic",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "description", "state", "priority", "product", "assigned_to", "story_points"]
+  },
+  "rm_sprint": {
+    "label": "Sprint",
+    "key_field": "short_description",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["short_description", "state", "start_date", "end_date", "story_points", "velocity", "assignment_group"]
+  },
+  "rm_scrum_task": {
+    "label": "Scrum Task",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "state", "assigned_to", "story", "sprint", "remaining_hours", "planned_hours", "type"]
+  },
+  "pm_project": {
+    "label": "Project",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "description", "state", "phase", "priority", "start_date", "end_date", "percent_complete", "project_manager"]
+  },
+  "pm_project_task": {
+    "label": "Project Task",
+    "key_field": "number",
+    "display_field": "short_description",
+    "required_fields": ["short_description"],
+    "common_fields": ["number", "short_description", "state", "assigned_to", "parent", "start_date", "end_date", "percent_complete"]
+  },
+  "sysapproval_approver": {
+    "label": "Approval",
+    "key_field": "sys_id",
+    "display_field": "approver",
+    "required_fields": ["sysapproval", "approver"],
+    "common_fields": ["sysapproval", "approver", "state", "comments", "source_table", "expected_start", "due_date"]
+  },
+  "sysapproval_group": {
+    "label": "Group Approval",
+    "key_field": "sys_id",
+    "display_field": "assignment_group",
+    "required_fields": ["parent", "assignment_group"],
+    "common_fields": ["parent", "assignment_group", "approval", "comments"]
+  },
+  "sys_choice": {
+    "label": "Choice",
+    "key_field": "sys_id",
+    "display_field": "label",
+    "required_fields": ["name", "element", "value"],
+    "common_fields": ["name", "element", "label", "value", "sequence", "language", "inactive"]
+  },
+  "sys_dictionary": {
+    "label": "Dictionary Entry",
+    "key_field": "sys_id",
+    "display_field": "element",
+    "required_fields": ["name"],
+    "common_fields": ["name", "element", "column_label", "internal_type", "max_length", "mandatory", "reference", "default_value", "active", "read_only"]
+  },
+  "sys_db_object": {
+    "label": "Table",
+    "key_field": "name",
+    "display_field": "label",
+    "required_fields": ["name"],
+    "common_fields": ["name", "label", "super_class", "sys_class_name", "access"]
+  },
+  "sys_documentation": {
+    "label": "Documentation",
+    "key_field": "sys_id",
+    "display_field": "label",
+    "required_fields": ["name", "element"],
+    "common_fields": ["name", "element", "label", "help", "hint", "language"]
+  },
+  "sys_properties": {
+    "label": "System Property",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "value", "description", "type", "suffix"]
+  },
+  "sys_app": {
+    "label": "Application",
+    "key_field": "scope",
+    "display_field": "name",
+    "required_fields": ["name", "scope"],
+    "common_fields": ["name", "scope", "version", "active", "vendor"]
+  },
+  "sys_scope": {
+    "label": "Application Scope",
+    "key_field": "scope",
+    "display_field": "name",
+    "required_fields": ["name", "scope"],
+    "common_fields": ["name", "scope", "version", "active", "short_description"]
+  },
+  "sys_trigger": {
+    "label": "Schedule Item",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "trigger_type", "script", "next_action", "state", "system_id"]
+  },
+  "sys_attachment": {
+    "label": "Attachment",
+    "key_field": "file_name",
+    "display_field": "file_name",
+    "required_fields": ["table_name", "table_sys_id"],
+    "common_fields": ["file_name", "table_name", "table_sys_id", "content_type", "size_bytes"]
+  },
+  "sla_definition": {
+    "label": "SLA Definition",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "collection", "duration", "start_condition", "stop_condition", "active"]
+  },
+  "task_sla": {
+    "label": "Task SLA",
+    "key_field": "sys_id",
+    "display_field": "sla",
+    "required_fields": ["task", "sla"],
+    "common_fields": ["task", "sla", "stage", "has_breached", "start_time", "end_time", "business_time_left", "percentage"]
+  },
+  "sys_email": {
+    "label": "Email",
+    "key_field": "sys_id",
+    "display_field": "subject",
+    "required_fields": [],
+    "common_fields": ["subject", "body", "recipients", "type", "instance", "target_table", "state"]
+  },
+  "sys_email_notification": {
+    "label": "Email Notification",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "collection", "condition", "message_html", "subject", "recipients", "active", "event_name"]
+  },
+  "sysevent": {
+    "label": "Event",
+    "key_field": "sys_id",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "table", "instance", "parm1", "parm2", "queue", "state", "process_on"]
+  },
+  "sys_import_set_row": {
+    "label": "Import Set Row",
+    "key_field": "sys_id",
+    "display_field": "sys_import_set",
+    "required_fields": ["sys_import_set"],
+    "common_fields": ["sys_import_set", "sys_import_state", "sys_import_state_comment", "sys_target_table", "sys_target_sys_id"]
+  },
+  "sys_data_source": {
+    "label": "Data Source",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "type", "import_set_table_name", "format", "file_path", "connection_url"]
+  },
+  "sys_transform_map": {
+    "label": "Transform Map",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name", "source_table"],
+    "common_fields": ["name", "source_table", "target_table", "active", "order", "run_script"]
+  },
+  "sys_transform_entry": {
+    "label": "Field Map",
+    "key_field": "sys_id",
+    "display_field": "source_field",
+    "required_fields": ["map", "source_field"],
+    "common_fields": ["map", "source_field", "target_field", "coalesce", "date_format"]
+  },
+  "sys_scheduled_job": {
+    "label": "Scheduled Job",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "run_type", "run_start", "repeat_interval", "script", "active", "conditional"]
+  },
+  "sys_report": {
+    "label": "Report",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title", "table"],
+    "common_fields": ["title", "table", "type", "field", "filter", "user", "group", "content"]
+  },
+  "sys_portal_page": {
+    "label": "Homepage",
+    "key_field": "title",
+    "display_field": "title",
+    "required_fields": ["title"],
+    "common_fields": ["title", "view", "layout", "selectable", "roles"]
+  },
+  "pa_dashboards": {
+    "label": "Dashboard",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "user", "group", "selectable"]
+  },
+  "pa_widgets": {
+    "label": "PA Widget",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "dashboard", "indicator", "type", "visualization"]
+  },
+  "pa_indicators": {
+    "label": "Indicator",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "cube", "aggregate", "field", "conditions", "frequency", "active"]
+  },
+  "sys_security_acl": {
+    "label": "ACL",
+    "key_field": "sys_id",
+    "display_field": "name",
+    "required_fields": ["name", "operation"],
+    "common_fields": ["name", "operation", "type", "admin_overrides", "active", "condition", "script", "advanced"]
+  },
+  "sys_user_preference": {
+    "label": "User Preference",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "value", "user", "system", "description"]
+  },
+  "sys_ws_definition": {
+    "label": "Scripted REST Service",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "namespace", "short_description", "active"]
+  },
+  "asmt_assessment": {
+    "label": "Assessment",
+    "key_field": "sys_id",
+    "display_field": "metric_type",
+    "required_fields": ["metric_type"],
+    "common_fields": ["metric_type", "source_id", "source_table", "state", "taken_on"]
+  },
+  "asmt_metric": {
+    "label": "Assessment Metric",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "metric_type", "category", "datatype", "active", "order"]
+  },
+  "core_company": {
+    "label": "Company",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "street", "city", "state", "zip", "country", "phone", "website"]
+  },
+  "cmn_department": {
+    "label": "Department",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "description", "dept_head", "company", "parent", "head_count"]
+  },
+  "cmn_location": {
+    "label": "Location",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "street", "city", "state", "zip", "country", "latitude", "longitude", "company", "parent"]
+  },
+  "cmn_cost_center": {
+    "label": "Cost Center",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "account_number", "manager", "valid_from", "valid_to"]
+  },
+  "alm_asset": {
+    "label": "Asset",
+    "key_field": "display_name",
+    "display_field": "display_name",
+    "required_fields": [],
+    "common_fields": ["display_name", "asset_tag", "model", "model_category", "assigned_to", "install_status", "substatus", "serial_number", "ci"]
+  },
+  "alm_hardware": {
+    "label": "Hardware Asset",
+    "key_field": "display_name",
+    "display_field": "display_name",
+    "required_fields": [],
+    "common_fields": ["display_name", "asset_tag", "model", "serial_number", "assigned_to", "ci", "install_status"]
+  },
+  "cmdb_model": {
+    "label": "Product Model",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "manufacturer", "model_number", "cmdb_model_category", "description"]
+  },
+  "cmdb_ci_network_adapter": {
+    "label": "Network Adapter",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "ip_address", "mac_address", "cmdb_ci", "netmask", "dhcp_enabled"]
+  },
+  "sys_audit": {
+    "label": "Audit",
+    "key_field": "sys_id",
+    "display_field": "fieldname",
+    "required_fields": [],
+    "common_fields": ["tablename", "documentkey", "fieldname", "oldvalue", "newvalue", "user", "sys_created_on"]
+  },
+  "sys_journal_field": {
+    "label": "Journal Entry",
+    "key_field": "sys_id",
+    "display_field": "value",
+    "required_fields": [],
+    "common_fields": ["name", "element", "element_id", "value", "sys_created_on", "sys_created_by"]
+  },
+  "cmn_timeline_page": {
+    "label": "Timeline Page",
+    "key_field": "name",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "table", "condition"]
+  },
+  "sys_ui_form": {
+    "label": "Form Layout",
+    "key_field": "sys_id",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "view"]
+  },
+  "sys_ui_form_section": {
+    "label": "Form Section",
+    "key_field": "sys_id",
+    "display_field": "caption",
+    "required_fields": ["sys_ui_form"],
+    "common_fields": ["sys_ui_form", "caption", "position"]
+  },
+  "sys_ui_list": {
+    "label": "List Layout",
+    "key_field": "sys_id",
+    "display_field": "name",
+    "required_fields": ["name"],
+    "common_fields": ["name", "view"]
+  },
+  "sys_ui_related_list": {
+    "label": "Related List",
+    "key_field": "sys_id",
+    "display_field": "related_list",
+    "required_fields": ["name"],
+    "common_fields": ["name", "related_list", "view", "position"]
+  }
+}

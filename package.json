@@ -1,0 +1,26 @@
+{
+  "name": "servicenow-cli",
+  "version": "0.1.0",
+  "description": "Command-line interface for ServiceNow. Multi-instance, multi-module, feature-parity with servicenow-mcp-server.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "sn": "./bin/sn"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "start": "bun run src/cli.ts",
+    "build": "bun build --compile --target=bun src/cli.ts --outfile dist/sn",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.2.0",
+    "citty": "^0.1.6",
+    "zod": "^4.3.6"
+  }
+}
