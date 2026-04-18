@@ -4,17 +4,33 @@
 
 ## Status
 
-Phase 1 (MVP). Covers:
+Phase 2 shipped. Covers:
 
-- `sn instance` — list, use, info, add, remove, current
+### Ticketing & workflow
 - `sn incident` — list, get, create, update, resolve, close, reopen, comment, work-note
 - `sn change` — list, get, create, update, submit-approval, approve, reject, add-task, comment, work-note
+- `sn problem` — list, get, create, update, close, comment, work-note
+- `sn request` — list, get, submit (catalog order via `/api/sn_sc/.../order_now`)
+- `sn ritm` — list, get, update
+
+### Platform developer loop
+- `sn update-set` — list, get, create, update, use, current, commit, clone, add, move
+- `sn scope` — current, set
+- `sn script` — pull, push, watch (local `.sn-sync.json` manifest, `fs.watch` debounced)
+- `sn run-script` — execute server-side JS via `sys_trigger`, optional `--wait <seconds>`
+- `sn business-rule`, `sn client-script`, `sn ui-policy`, `sn ui-action`, `sn ui-script`, `sn script-include` — list, get, create, update, delete (each)
+- `sn schema` — tables, discover, field
+
+### Admin
+- `sn instance` — list, use, info, add, remove, current
 - `sn user` — list, get, create, update
 - `sn group` — list, create, update, add-members, remove-members
-- `sn search` — natural-language → encoded query
-- `sn table` — generic Table API (query/get/create/update/delete) — escape hatch for any table not yet wrapped
 
-Phase 2 (update sets, script sync, background scripts, schema discovery) and Phase 3 (KB, catalog, workflows, CMDB, agile, batch, completions) to follow — tracked in [todo.md](./todo.md).
+### Escape hatches
+- `sn search` — natural-language → encoded query
+- `sn table` — generic Table API (query/get/create/update/delete) for any table not yet wrapped
+
+Phase 3 (KB, catalog, workflows, flow designer, widgets, UI pages, agile, CMDB, batch, attachments, completions) tracked in [todo.md](./todo.md).
 
 ## Install
 
@@ -45,7 +61,8 @@ Or manually create `~/.config/servicenow-cli/config.json`:
     }
   ],
   "defaultOutput": "table",
-  "color": "auto"
+  "color": "auto",
+  "scriptSync": { "workDir": "./sn-scripts" }
 }
 ```
 
@@ -57,30 +74,68 @@ Config discovery order:
 ## Examples
 
 ```bash
+# Instances & ticketing
 sn instance list
-sn instance use dev
-
 sn incident list --state 2 --priority 1
-sn incident get INC0012345
 sn incident create --short-desc "Printer jam" --urgency 2
-sn incident comment INC0012345 "checking with vendor"
-sn incident resolve INC0012345 --code "Solved (Permanently)" --notes "replaced toner"
+sn incident resolve INC0012345 --code "Solution provided" --notes "replaced toner"
+sn problem close PRB0040001 --close-code "Risk Accepted" --close-notes "done"
 
-sn change list --type normal --state open
-sn change approve CHG0001234 --comments "LGTM"
-
-sn user list --active --role admin
-sn group add-members "Network" --users "alice,bob@example.com"
-
+# Natural-language search & escape hatch
 sn search "high priority incidents assigned to admin"
-sn search "emergency changes this week"
-
 sn table query sys_user --query "active=true" --sn-fields user_name,email --limit 5
-sn table get incident abc123...
-sn table create incident --data '{"short_description":"Test"}'
-sn table update incident abc123... --set priority=1,state=2
-sn table delete incident abc123... --force
 ```
+
+## Update-set workflow
+
+```bash
+# Create a set and start working under it
+SET=$(sn update-set create --name "CLI smoke" -o json | jq -r .sys_id)
+sn update-set use "$SET"             # persists to sidecar state
+sn business-rule create --name Foo --collection incident --when before --script-file foo.js
+sn update-set get "$SET" --full       # inspect captured records
+sn update-set commit "$SET"
+```
+
+Any write command (`business-rule create`, `script-include update`, etc.) accepts `--update-set <sys_id>` to override the current set for that invocation. Pass `--no-apply-state` to skip entirely.
+
+### Caveats
+
+- **Update-set binding on Basic-Auth REST is best-effort.** SN's mechanism for the "current update set" depends on a per-user browser session; Basic-Auth REST requests don't always honour the `sys_user_preference` flip the CLI performs. If records aren't landing where you expect, set the update set interactively in the browser first (with the same user), or attach records manually via `sn update-set add`. Scope binding (via concoursepicker) is more reliable.
+- **Sidecar state races.** The per-instance sidecar at `~/.config/servicenow-cli/state/<instance>.json` is a single file — parallel invocations to the same instance can clobber each other's `update-set use` / `scope set` writes. Prefer `--update-set` / `--scope` flags in automation.
+
+## Script sync workflow
+
+```bash
+# Pull a record's script fields into ./sn-scripts/
+sn script pull <sys_id> --table sys_script_include   # --table optional; inferred otherwise
+
+# Edit locally in your editor
+$EDITOR sn-scripts/myscript.js
+
+# Push back
+sn script push sn-scripts/myscript.js
+
+# Or watch + auto-push (debounced fs.watch)
+sn script watch sn-scripts/
+```
+
+Manifest lives at `./.sn-sync.json` in the working directory (one per project / scoped app). Multi-field records (widgets, UI pages) are pulled into a subdirectory with one file per field.
+
+## Running background scripts
+
+```bash
+# Fire-and-forget
+sn run-script --code "gs.info('hello from cli');"
+
+# From file with auto-wait
+sn run-script ./fix.js --wait 15
+
+# From stdin
+cat fix.js | sn run-script -
+```
+
+The script runs as a one-shot `sys_trigger` that auto-deletes itself after execution (`--no-auto-delete` to keep the record). `--wait <seconds>` polls the trigger's `state` field and exits when it transitions to `executed` (1) or `error` (2).
 
 ## Global flags
 
@@ -95,6 +150,14 @@ Available on every command (pass them after the subcommand name):
 | `-q, --quiet` | Suppress INFO/WARN log lines |
 | `--debug` | Enable DEBUG logging |
 | `--no-color` | Disable ANSI colors |
+
+Write commands (create/update/delete/close/resolve) additionally accept:
+
+| Flag | Purpose |
+|---|---|
+| `--update-set <sys_id>` | Override current update-set for this call |
+| `--scope <sys_id>` | Override current scope for this call |
+| `--no-apply-state` | Don't apply any session state |
 
 ## Exit codes
 
@@ -115,13 +178,20 @@ Both basic and OAuth 2.0 (password grant) are supported. Credentials live in `co
 ## Scripts
 
 ```bash
-bun run dev           # run CLI in watch mode (via bun run)
+bun run dev           # run CLI in watch mode
 bun run start         # run CLI once
-bun test              # unit tests
+bun test              # unit tests only
 bun run typecheck     # tsc --noEmit
 bun run build         # compile dist/sn single binary
+RUN_INTEGRATION=1 bun test   # + integration tests against dev PDI
 ```
+
+## Testing
+
+Unit tests run offline. Integration tests are env-gated by `RUN_INTEGRATION=1` and hit a real ServiceNow developer instance (PDI). Config path defaults to `servicenow-mcp-server/config/servicenow-config.json`; override with `SN_TEST_CONFIG` and/or `SN_TEST_INSTANCE`.
+
+The composite `tests/integration/phase2-smoke.test.ts` walks the full platform-dev workflow in one shot: update-set create + use → business-rule create → script pull/push → run-script with wait → commit → schema lookup. Use it as a regression check after touching any Phase 2 code.
 
 ## License
 
-See LICENSE (TBD — defaults to the same license as servicenow-mcp-server).
+See LICENSE.

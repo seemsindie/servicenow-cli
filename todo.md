@@ -2,7 +2,7 @@
 
 Tracks feature work by phase. Check each item as it's shipped.
 
-## Phase 1: MVP
+## Phase 1: MVP (shipped)
 
 ### Infrastructure
 - [x] `package.json`, `tsconfig.json`, `bin/sn`, `.gitignore`
@@ -15,7 +15,7 @@ Tracks feature work by phase. Check each item as it's shipped.
 - [x] Spinner util
 - [x] Interactive instance wizard (first-run bootstrap)
 - [x] `cli.ts` + `commands/index.ts` (citty tree)
-- [x] Global flag plumbing (`--instance`, `--output`, `--config`, `--fields`, `--quiet`, `--debug`, `--no-color`)
+- [x] Global flag plumbing
 
 ### Commands
 - [x] `instance` — list, use, info, add, remove, current
@@ -30,54 +30,60 @@ Tracks feature work by phase. Check each item as it's shipped.
 - [x] Help text renders for every leaf command
 - [x] Unit tests for formatters, resolvers, config loader, error handler, NL search
 - [x] README with quick start
-- [x] End-to-end PDI smoke test (create → get → update → resolve real INC) — `tests/integration/incident-lifecycle.test.ts`, run with `RUN_INTEGRATION=1`
+- [x] End-to-end PDI smoke test (`tests/integration/incident-lifecycle.test.ts`)
 
-## Phase 2: Platform Dev
+## Phase 2: Platform Developer Loop (shipped)
 
-- [ ] `update-set` — list, get, create, update, use, commit, clone, add, move
-- [ ] `scope` — current, set
-- [ ] `script` — pull, push, watch (script sync with `.sn-sync.json` manifest)
-- [ ] `run-script` — background script exec (file / `-` stdin / `-c` inline)
-- [ ] `script-include` — list, get, create, update, delete
-- [ ] `business-rule` — list, get, create, update, delete
-- [ ] `client-script` — list, get, create, update, delete
-- [ ] `ui-policy` — list, get, create, update, delete
-- [ ] `ui-action` — list, get, create, update, delete
-- [ ] `ui-script` — list, get, create, update, delete
-- [ ] `schema` — tables, discover `<table>`, field `<table> <field>`, explain-field
-- [ ] `problem` — list, get, create, update, close, comment, work-note
-- [ ] `request` — list, get, submit
-- [ ] `ritm` — list, get, update
+### Shared infrastructure
+- [x] `src/utils/state.ts` — per-instance sidecar state (`~/.config/servicenow-cli/state/<instance>.json`)
+- [x] `src/utils/apply-session-state.ts` — best-effort session binding (sys_user_preference + concoursepicker)
+- [x] `src/commands/_script-crud.ts` — parameterized CRUD factory for 6 script domains
+- [x] `src/utils/script-map.ts` — SCRIPT_FIELD_MAP + fieldExtension + safeName
+- [x] `src/utils/trigger-poll.ts` — run-script --wait
 
-## Phase 3: Full Parity & Polish
+### Commands
+- [x] `update-set` — list, get, create, update, use, current, commit, clone, add, move
+- [x] `scope` — current, set
+- [x] `script` — pull, push, watch (fs.watch, 300ms debounce)
+- [x] `run-script` — background script via sys_trigger (optional --wait)
+- [x] `script-include`, `business-rule`, `client-script`, `ui-policy`, `ui-action`, `ui-script` (list/get/create/update/delete each, via factory)
+- [x] `schema` — tables, discover, field
+- [x] `problem` — list, get, create, update, close, comment, work-note
+- [x] `request` — list, get, submit (custom `/order_now` endpoint)
+- [x] `ritm` — list, get, update
+
+### Phase 2 exit criteria
+- [x] Help text for every new leaf
+- [x] Unit tests pass (`bun test` — 56 tests)
+- [x] Integration tests pass on dev PDI (`RUN_INTEGRATION=1 bun test` — 9 tests)
+- [x] README updated: update-set workflow, script sync workflow, run-script examples, caveats
+- [x] Composite `tests/integration/phase2-smoke.test.ts` walks full platform-dev flow
+
+### Known limitations (documented in README)
+- **Update-set binding via REST is best-effort.** SN's per-user-session mechanism doesn't consistently honour the preference flip on stateless Basic-Auth writes.
+- **Sidecar state races** when parallel invocations target the same instance. Prefer `--update-set` / `--scope` flags in automation.
+
+## Phase 3: Full parity & polish
 
 - [ ] `kb` — base-create, category-create, article-list, article-get, article-create, article-update, article-publish
 - [ ] `catalog` — list, items, item-get, variables, category-create, category-update, move-items, validate, recommend
 - [ ] `workflow` — list, get, create, create-full, publish, delete, activity-add, transition-add
 - [ ] `flow` — list, get, create, stages, variables, variable-add
-- [ ] `rest-api` — list, get, create, update, resource-create, resource-update, resource-delete
-- [ ] `widget` — list, get, create, update, delete
-- [ ] `ui-page` — list, get, create, update, delete
+- [ ] `rest-api` — list, get, create, update, resource-create/update/delete
+- [ ] `widget`, `ui-page` — list, get, create, update, delete
 - [ ] `story`, `epic`, `task`, `project` (agile) — list, create, update
 - [ ] `ci` (CMDB) — list, get, create, relationships, relate
 - [ ] `attachment` — list, get, upload
 - [ ] `batch` — create, update, delete (parallel ops with progress)
-- [ ] `aggregate` — count/sum/avg/min/max across tables
+- [ ] `aggregate` — count/sum/avg/min/max
 - [ ] `import` — set-create, transform
 - [ ] CSV + YAML formatters
-- [ ] Shell completions (bash / zsh / fish) — `sn completion <shell>`
+- [ ] Shell completions (`sn completion bash|zsh|fish`)
 - [ ] Single-binary release pipeline (linux-x64, darwin-arm64, darwin-x64)
-- [ ] Man page (`sn(1)`)
-- [ ] Full README with example per command
+- [ ] Man page
 
 ## Cross-cutting (ongoing)
 
-- [ ] Unit test per new command module
-- [ ] Integration tests (env-gated via `SN_TEST_INSTANCE`, `SN_TEST_USER`, `SN_TEST_PASS`)
-- [ ] Error message quality pass (ensure every thrown Error reads well in the terminal)
-- [ ] Review `citty`'s TTY detection — currently relying on `process.stdout.isTTY` alone
-- [ ] Explore secret storage (macOS keychain / `gnome-libsecret`) instead of plaintext passwords
-
-## Known quirks
-
-- Global flags (`--config`, `-i`, etc.) must follow the subcommand name because citty parses args on the leaf command only (e.g. `sn instance list --config ...`, not `sn --config ... instance list`).
+- [ ] Suppress ERROR log in client during expected 404s (e.g. `trigger-poll` seeing auto-deleted triggers)
+- [ ] Integration test parallelism — consider running files sequentially to avoid sidecar races
+- [ ] Secret storage (macOS keychain / libsecret) instead of plaintext passwords
