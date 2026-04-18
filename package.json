@@ -1,6 +1,6 @@
 {
   "name": "@seemsindie/servicenow-cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Command-line interface for ServiceNow. 35 command domains, multi-instance, feature parity with the ServiceNow MCP server.",
   "type": "module",
   "bin": {
