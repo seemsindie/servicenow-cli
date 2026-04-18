@@ -49,6 +49,7 @@
     "build": "bun build --compile --target=bun src/cli.ts --outfile dist/sn",
     "build:node": "bun build --target=node src/cli.ts --outfile dist/sn.mjs && { printf '#!/usr/bin/env node\\n'; cat dist/sn.mjs; } > dist/sn.mjs.tmp && mv dist/sn.mjs.tmp dist/sn.mjs && chmod +x dist/sn.mjs",
     "build:release": "./scripts/build-release.sh",
+    "release": "./scripts/release.sh",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
