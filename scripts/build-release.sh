@@ -21,10 +21,16 @@ for target in "${TARGETS[@]}"; do
   bun build --compile --target="$bunTarget" src/cli.ts --outfile "$DIST/$outName"
 done
 
+echo "→ building Node bundle (for npm): dist/sn.mjs"
+bun build --target=node src/cli.ts --outfile "$DIST/sn.mjs"
+{ printf '#!/usr/bin/env node\n'; cat "$DIST/sn.mjs"; } > "$DIST/sn.mjs.tmp"
+mv "$DIST/sn.mjs.tmp" "$DIST/sn.mjs"
+chmod +x "$DIST/sn.mjs"
+
 echo "→ writing SHA256SUMS"
 cd "$DIST"
-sha256sum sn-linux-x64 sn-darwin-arm64 sn-darwin-x64 > SHA256SUMS
+sha256sum sn-linux-x64 sn-darwin-arm64 sn-darwin-x64 sn.mjs > SHA256SUMS
 
 echo ""
 echo "Release artifacts:"
-ls -lh sn-linux-x64 sn-darwin-arm64 sn-darwin-x64 SHA256SUMS
+ls -lh sn-linux-x64 sn-darwin-arm64 sn-darwin-x64 sn.mjs SHA256SUMS

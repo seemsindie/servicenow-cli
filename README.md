@@ -1,5 +1,8 @@
 # servicenow-cli
 
+[![npm](https://img.shields.io/npm/v/@seemsindie/servicenow-cli.svg)](https://www.npmjs.com/package/@seemsindie/servicenow-cli)
+[![release](https://img.shields.io/github/v/release/seemsindie/servicenow-cli?include_prereleases)](https://github.com/seemsindie/servicenow-cli/releases)
+
 `sn` — command-line interface for ServiceNow. Multi-instance, multi-module, feature-parity with [servicenow-mcp-server](../servicenow-mcp-server).
 
 ## Status
@@ -54,10 +57,35 @@ Phase 3 shipped (v0.3.0). Full parity with [servicenow-mcp-server](../servicenow
 
 ## Install
 
+### From npm (recommended for Node / Bun users)
+
 ```bash
+npm i -g @seemsindie/servicenow-cli
+# or one-shot
+npx @seemsindie/servicenow-cli instance list
+```
+
+### Download the prebuilt binary (no Node required)
+
+Grab the binary for your platform from the [latest release](https://github.com/seemsindie/servicenow-cli/releases/latest):
+
+```bash
+# Linux x64
+curl -L https://github.com/seemsindie/servicenow-cli/releases/latest/download/sn-linux-x64 -o /usr/local/bin/sn
+chmod +x /usr/local/bin/sn
+
+# macOS arm64
+curl -L https://github.com/seemsindie/servicenow-cli/releases/latest/download/sn-darwin-arm64 -o /usr/local/bin/sn
+chmod +x /usr/local/bin/sn
+```
+
+### From source
+
+```bash
+git clone https://github.com/seemsindie/servicenow-cli.git
+cd servicenow-cli
 bun install
-# (optional) compile single binary
-bun run build   # → dist/sn
+bun run build   # → dist/sn (single binary)
 ```
 
 ## First run

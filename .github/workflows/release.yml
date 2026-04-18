@@ -7,26 +7,49 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # required for npm provenance
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install --frozen-lockfile
-      - run: bun run typecheck
-      - run: bun test
-      - run: ./scripts/build-release.sh
-      - uses: softprops/action-gh-release@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun test
+
+      - name: Build release artifacts
+        run: ./scripts/build-release.sh
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/sn-linux-x64
             dist/sn-darwin-arm64
             dist/sn-darwin-x64
+            dist/sn.mjs
             dist/SHA256SUMS
           draft: false
           prerelease: false
           generate_release_notes: true
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

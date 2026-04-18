@@ -1,27 +1,62 @@
 {
-  "name": "servicenow-cli",
+  "name": "@seemsindie/servicenow-cli",
   "version": "0.3.0",
-  "description": "Command-line interface for ServiceNow. Multi-instance, multi-module, feature-parity with servicenow-mcp-server.",
+  "description": "Command-line interface for ServiceNow. 35 command domains, multi-instance, feature parity with the ServiceNow MCP server.",
   "type": "module",
-  "private": true,
   "bin": {
-    "sn": "./bin/sn"
+    "sn": "./dist/sn.mjs"
+  },
+  "files": [
+    "dist/sn.mjs",
+    "man/sn.1",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seemsindie/servicenow-cli.git"
+  },
+  "homepage": "https://github.com/seemsindie/servicenow-cli#readme",
+  "bugs": {
+    "url": "https://github.com/seemsindie/servicenow-cli/issues"
+  },
+  "keywords": [
+    "servicenow",
+    "cli",
+    "snow",
+    "itsm",
+    "cmdb",
+    "update-set",
+    "flow-designer",
+    "incident",
+    "change",
+    "problem",
+    "automation",
+    "devops",
+    "sn",
+    "integration"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "dev": "bun run src/cli.ts",
     "start": "bun run src/cli.ts",
     "build": "bun build --compile --target=bun src/cli.ts --outfile dist/sn",
+    "build:node": "bun build --target=node src/cli.ts --outfile dist/sn.mjs && { printf '#!/usr/bin/env node\\n'; cat dist/sn.mjs; } > dist/sn.mjs.tmp && mv dist/sn.mjs.tmp dist/sn.mjs && chmod +x dist/sn.mjs",
     "build:release": "./scripts/build-release.sh",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.9.0"
-  },
-  "dependencies": {
     "@clack/prompts": "^1.2.0",
+    "@types/bun": "latest",
     "citty": "^0.1.6",
+    "typescript": "^5.9.0",
     "yaml": "^2.8.3",
     "zod": "^4.3.6"
   }
