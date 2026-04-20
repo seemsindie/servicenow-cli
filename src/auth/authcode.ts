@@ -62,10 +62,14 @@ export class AuthCodeProvider implements AuthProvider {
   async getHeaders(): Promise<Record<string, string>> {
     const session = this.tryReadImpersonation();
     if (session) {
+      logger.debug(
+        `authcode[${this.instanceName}]: using impersonation cookie (user_sys_id=${session.user_sys_id ?? "?"}, x_user_token=${session.x_user_token ? "present" : "absent"})`
+      );
       const headers: Record<string, string> = { Cookie: session.cookie };
       if (session.x_user_token) headers["X-UserToken"] = session.x_user_token;
       return headers;
     }
+    logger.debug(`authcode[${this.instanceName}]: using bearer from keyring`);
     const token = await this.getAccessToken();
     return { Authorization: `Bearer ${token}` };
   }
