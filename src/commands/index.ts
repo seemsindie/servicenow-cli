@@ -47,6 +47,7 @@ import edit from "./edit.ts";
 import openapi from "./openapi/index.ts";
 import diff from "./diff.ts";
 import exportCmd from "./export.ts";
+import mcp from "./mcp/index.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -97,4 +98,5 @@ export const subCommands: Record<string, CommandDef> = {
   openapi,
   diff,
   export: exportCmd,
+  mcp,
 };

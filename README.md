@@ -7,7 +7,7 @@
 
 ## Status
 
-Phase 7 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow-mcp-server) across 35+ command domains plus build-on-SN, auth, DevOps tooling.
+Phase 8 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow-mcp-server) across 35+ command domains plus build-on-SN, auth, DevOps, MCP bridge.
 
 ### Ticketing & workflow
 - `sn incident` — list, get, create, update, resolve, close, reopen, comment, work-note
@@ -64,7 +64,10 @@ Phase 7 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow
 - `sn edit <table> <id> [--field <name>]` — open a record (or one field) in `$EDITOR`, PATCH only what changed. Dirty-write protection via `sys_mod_count` re-check. Reference fields shown as raw sys_ids.
 - `sn openapi import <spec.{yaml,json}>` — scaffold a Scripted REST API + one operation per path/method from an OpenAPI 3.x spec. `--dry-run` prints the plan.
 
-### DevOps (v0.7+)
+### LLM integration (v0.7+)
+- `sn mcp serve [--allow-writes] [--allow-admin]` — expose every `sn` leaf as an MCP tool over stdio. Drop into Claude Desktop / Cursor / Claude Code config and the agent can run any command you can. Read-only by default; `--allow-writes` unlocks creates/updates, `--allow-admin` unlocks deletes/commits/impersonate.
+
+### DevOps (v0.6+)
 - `sn export <table> [id] [--query Q] [--out PATH]` — **generic XML export** via SN's platform `/{table}.do?UNL` endpoint (same as the UI's "Export to XML" action). Works for every table: `sys_update_set`, `oauth_entity`, `sp_widget`, `sys_script_include`, etc. Single sys_id → one record; pass `--query` to export many.
 - `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — ergonomic shortcut over `sn export sys_update_set`: resolves by name, warns on non-Complete state, offers a structured `--format json` mode that dumps the parent + `sys_update_xml` children via the Table API.
 - `sn diff <instance-a> <instance-b> <table> [--query] [--key] [--fields]` — field-level record diff across two configured instances. Reports `onlyInA` / `onlyInB` / `different` / identical. `--key name` for portable records where cross-instance sys_ids differ.
@@ -332,6 +335,55 @@ sn diff dev prod sys_script_include --key name -o json | jq '.counts'
 `sn update-set export` also has a `--format json` mode that dumps the parent `sys_update_set` row plus every `sys_update_xml` child, useful for structural diffs / version control when you want to track a set's contents as code.
 
 > **Why no `sn update-set import`?** SN has no clean REST endpoint for XML-upload — the SN-native pattern is cross-instance retrieval (configure one instance as an "Update Source" of another), which requires SN-side config. Queued for a future release once we confirm an approach that doesn't require per-instance setup.
+
+## Use `sn` as an MCP server
+
+Run the CLI as a Model Context Protocol server so Claude Desktop / Cursor / Claude Code agents can call every `sn` command as a tool — same auth, same multi-instance config, no duplicated implementation.
+
+```bash
+# Verify it boots and lists tools
+sn mcp serve --allow-writes &
+npx @modelcontextprotocol/inspector stdio sn mcp serve --allow-writes
+```
+
+### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%/Claude/claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "servicenow": {
+      "command": "sn",
+      "args": ["mcp", "serve", "--allow-writes"]
+    }
+  }
+}
+```
+
+### Claude Code
+
+```bash
+claude mcp add servicenow -- sn mcp serve --allow-writes
+```
+
+### Tool naming
+
+Every leaf becomes one MCP tool with a dot-separated name:
+
+| Command | Tool |
+|---|---|
+| `sn incident list` | `incident.list` |
+| `sn update-set export` | `update_set.export` |
+| `sn codegen typescript` | `codegen.typescript` |
+
+### Authorization tiers
+
+- **default**: read-only. `list`, `get`, `query`, `export`, `diff`, `status`, `info`, `schema`, `search`, `aggregate`, `watch`, `tail`, all `codegen.*` and `completion.*`.
+- **`--allow-writes`**: enables creates/updates/adds (`incident.create`, `update_set.create`, `edit`, `webhook.create`, `openapi.import`, ...).
+- **`--allow-admin`**: enables destructive ops (`commit`, `delete`, `close`, `resolve`, `approve`, `reject`, `impersonate`, `run-script`). Implies `--allow-writes`.
+
+Pick the lowest tier an agent actually needs. Writes are gated on purpose.
 
 ## Script sync workflow
 
