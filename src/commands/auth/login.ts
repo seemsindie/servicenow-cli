@@ -29,6 +29,11 @@ export default defineLeaf({
       type: "string",
       description: "OAuth scope(s), space-separated (default: 'useraccount')",
     },
+    "redirect-uri": {
+      type: "string",
+      description:
+        "Exact redirect URL registered in your SN OAuth app (default: http://localhost:8443/callback). Must match character-for-character.",
+    },
   },
   async run(ctx, args) {
     const instanceName = ctx.flags.instance ?? ctx.registry.getDefaultName();
@@ -51,9 +56,18 @@ export default defineLeaf({
     const challenge = base64url(createHash("sha256").update(verifier).digest());
     const state = base64url(randomBytes(16));
 
-    // Local callback server
-    const { port, awaitCallback, close } = await startCallbackServer();
-    const redirectUri = `http://127.0.0.1:${port}/cb`;
+    // Parse the redirect URL. SN's OAuth enforces exact match against what's in
+    // the Application Registry. Default matches the most common setup
+    // (`http://localhost:8443/callback`) so it "just works" for most users; pass
+    // --redirect-uri to override if you've registered something else.
+    const redirectUri =
+      (args["redirect-uri"] as string | undefined) ?? "http://localhost:8443/callback";
+    const parsed = new URL(redirectUri);
+    const port = parsed.port ? parseInt(parsed.port, 10) : parsed.protocol === "https:" ? 443 : 80;
+
+    // Local callback server — bind 127.0.0.1 regardless of whether the user
+    // registered "localhost" (127.0.0.1 and localhost resolve to the same loopback).
+    const { awaitCallback, close } = await startCallbackServer(port, parsed.pathname);
 
     const authUrl = new URL(`${instanceUrl}/oauth_auth.do`);
     authUrl.searchParams.set("response_type", "code");
@@ -165,8 +179,7 @@ interface CallbackResult {
   error?: string;
 }
 
-async function startCallbackServer(): Promise<{
-  port: number;
+async function startCallbackServer(port: number, path: string): Promise<{
   awaitCallback: (timeoutMs: number) => Promise<CallbackResult>;
   close: () => void;
 }> {
@@ -180,7 +193,7 @@ async function startCallbackServer(): Promise<{
   const server = createServer((req, res) => {
     try {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
-      if (!url.pathname.endsWith("/cb")) {
+      if (url.pathname !== path) {
         res.writeHead(404).end("Not found");
         return;
       }
@@ -201,17 +214,12 @@ async function startCallbackServer(): Promise<{
     }
   });
 
-  await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", () => resolve());
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => resolve());
   });
-  const address = server.address();
-  if (!address || typeof address === "string") {
-    throw new Error("Failed to determine local callback port");
-  }
-  const port = address.port;
 
   return {
-    port,
     awaitCallback: (timeoutMs: number) =>
       Promise.race([
         pending,
