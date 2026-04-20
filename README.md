@@ -3,11 +3,33 @@
 [![npm](https://img.shields.io/npm/v/@seemsindie/servicenow-cli.svg)](https://www.npmjs.com/package/@seemsindie/servicenow-cli)
 [![release](https://img.shields.io/github/v/release/seemsindie/servicenow-cli?include_prereleases)](https://github.com/seemsindie/servicenow-cli/releases)
 
-`sn` — command-line interface for ServiceNow. Multi-instance, multi-module, feature-parity with [servicenow-mcp-server](../servicenow-mcp-server).
+`sn` — command-line interface for ServiceNow. Multi-instance, multi-module, feature parity with [servicenow-mcp-server](../servicenow-mcp-server).
 
-## Status
+## Contents
 
-Phase 8 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow-mcp-server) across 35+ command domains plus build-on-SN, auth, DevOps, MCP bridge.
+- [What you can do](#what-you-can-do)
+- [Install](#install)
+- [First run](#first-run)
+- [Command reference](#command-reference)
+- [Workflows](#workflows)
+  - [Editing records](#editing-records)
+  - [Promoting changes between instances](#promoting-changes-between-instances)
+  - [Script sync](#script-sync)
+  - [Run background scripts](#run-background-scripts)
+  - [Use `sn` as an MCP server](#use-sn-as-an-mcp-server)
+- [Global flags](#global-flags)
+- [Exit codes](#exit-codes)
+- [Auth](#auth)
+
+## What you can do
+
+- **Everyday SN work** — ticketing (`incident`, `change`, `problem`, `request`, `ritm`), CMDB (`ci`), content (`kb`, `catalog`), agile (`story`, `epic`, `task`, `project`), attachments, batch ops. 35+ domains, 146 leaf commands.
+- **Build on SN as a backend** — `sn codegen {typescript, python, go}` emits type-safe client code from the live dictionary; `sn log tail -f` and `sn watch` stream server-side events to stdout; `sn openapi import` scaffolds a Scripted REST API from an OpenAPI 3.x spec.
+- **LLM integration** — `sn mcp serve` exposes every leaf as an MCP tool. Point Claude Desktop / Cursor / Claude Code at it and the agent gets the full CLI surface. Read-only by default; writes gated behind `--allow-writes`.
+- **DevOps** — `sn update-set export` + `sn diff <instance-a> <instance-b> <table>` for promoting changes between environments and validating what landed.
+- **OAuth + keyring** — `sn auth login` runs OAuth 2.0 Authorization Code + PKCE, stores tokens in the OS keyring (macOS `security` / Linux `secret-tool` / Windows `cmdkey`) with an AES-256-GCM file fallback. No passwords in `config.json`.
+
+## Command reference
 
 ### Ticketing & workflow
 - `sn incident` — list, get, create, update, resolve, close, reopen, comment, work-note
@@ -50,24 +72,24 @@ Phase 8 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow
 - `sn search` — natural-language → encoded query
 - `sn table` — generic Table API (query/get/create/update/delete) for any table
 
-### Build-on-SN toolkit (v0.4+)
+### Build-on-SN toolkit
 - `sn codegen {typescript, python, go} <table>` — **live-schema codegen** from `sys_dictionary` + `sys_choice`, walks the super_class chain for inherited fields. TS interfaces + choice unions, Pydantic v2 models, or Go structs with typed const choices.
 - `sn log tail [--follow] [--level] [--source] [--message]` — stream `syslog` like `tail -f`. Colored by level, `-f` polls, JSON/CSV output works.
 - `sn watch <table> [--query] [--interval N] [--since]` — emits new/updated records as JSONL (one per line), `--once` for a single pass. Pipe to `jq` / feed a reactive UI / trigger external automation.
 
-### Auth & admin (v0.5+)
-- `sn auth {login, logout, status}` — **OAuth 2.0 Authorization Code + PKCE** with browser handoff, tokens stored in OS keyring (macOS `security` / Linux `secret-tool` / Windows `cmdkey`), AES-256-GCM file fallback. No more admin passwords in config.
+### Auth & admin
+- `sn auth {login, logout, status}` — **OAuth 2.0 Authorization Code + PKCE** with browser handoff, tokens stored in OS keyring (macOS `security` / Linux `secret-tool` / Windows `cmdkey`), AES-256-GCM file fallback.
 - `sn impersonate <user> -- <cmd> [args…]` — run a sub-command as another user via SN's session-cookie impersonation. OAuth-only. Ideal for ACL testing.
 - `sn webhook create -f spec.yaml` — declarative scaffold: REST Message + function + Business Rule trigger from a YAML spec.
 
-### Dev-loop upgrades (v0.6+)
-- `sn edit <table> <id> [--field <name>]` — open a record (or one field) in `$EDITOR`, PATCH only what changed. Dirty-write protection via `sys_mod_count` re-check. Reference fields shown as raw sys_ids.
+### Dev loop
+- `sn edit <table> <id> [--field <name>] [--no-confirm]` — open a record (or one field) in `$EDITOR`, show a colored diff, prompt for confirmation, then PATCH only what changed. Dirty-write detection via `sys_mod_count` re-check. Reference fields get `# → Display Name` annotations.
 - `sn openapi import <spec.{yaml,json}>` — scaffold a Scripted REST API + one operation per path/method from an OpenAPI 3.x spec. `--dry-run` prints the plan.
 
-### LLM integration (v0.7+)
-- `sn mcp serve [--allow-writes] [--allow-admin]` — expose every `sn` leaf as an MCP tool over stdio. Drop into Claude Desktop / Cursor / Claude Code config and the agent can run any command you can. Read-only by default; `--allow-writes` unlocks creates/updates, `--allow-admin` unlocks deletes/commits/impersonate.
+### LLM integration
+- `sn mcp serve [--allow-writes] [--allow-admin]` — expose every `sn` leaf as an MCP tool over stdio. Drop into Claude Desktop / Cursor / Claude Code config and the agent can run any command you can. Read-only by default.
 
-### DevOps (v0.6+)
+### DevOps
 - `sn export <table> [id] [--query Q] [--out PATH]` — **generic XML export** via SN's platform `/{table}.do?UNL` endpoint (same as the UI's "Export to XML" action). Works for every table: `sys_update_set`, `oauth_entity`, `sp_widget`, `sys_script_include`, etc. Single sys_id → one record; pass `--query` to export many.
 - `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — ergonomic shortcut over `sn export sys_update_set`: resolves by name, warns on non-Complete state, offers a structured `--format json` mode that dumps the parent + `sys_update_xml` children via the Table API.
 - `sn diff <instance-a> <instance-b> <table> [--query] [--key] [--fields]` — field-level record diff across two configured instances. Reports `onlyInA` / `onlyInB` / `different` / identical. `--key name` for portable records where cross-instance sys_ids differ.
@@ -286,7 +308,28 @@ sn instance add   # add a non-admin test account
 sn incident list -i test-user --limit 5    # see what they see
 ```
 
-## Update-set workflow
+## Workflows
+
+### Editing records
+
+`sn edit` fetches a record, opens it in `$EDITOR` as YAML (read-only audit fields stripped, reference fields annotated with display names), shows you a colored diff when you save, prompts to confirm, then PATCHes only the fields that changed.
+
+```bash
+# Full-record edit — opens YAML with reference-field hints
+sn edit incident INC0010016 -i devoauth
+# Shows a diff + [y/N] prompt; y applies the PATCH, anything else aborts.
+
+# One-field edit — opens just that field with a sensible extension
+sn edit sp_widget <sys_id> -i dev --field template       # → .html
+sn edit sys_script_include <sys_id> -i dev --field script  # → .js
+
+# Non-interactive / scripted
+sn edit incident INC0010016 -i devoauth --no-confirm --editor /path/to/sed-script
+```
+
+Dirty-write protection is built in: `sn edit` captures the record's `sys_mod_count` at fetch time and re-GETs right before the PATCH. If another user modified the record between your fetch and save, the edit aborts with a clear "re-run `sn edit` to pick up the latest" message.
+
+### Update-set workflow
 
 ```bash
 # Create a set and start working under it
@@ -304,7 +347,7 @@ Any write command (`business-rule create`, `script-include update`, etc.) accept
 - **Update-set binding on Basic-Auth REST is best-effort.** SN's mechanism for the "current update set" depends on a per-user browser session; Basic-Auth REST requests don't always honour the `sys_user_preference` flip the CLI performs. If records aren't landing where you expect, set the update set interactively in the browser first (with the same user), or attach records manually via `sn update-set add`. Scope binding (via concoursepicker) is more reliable.
 - **Sidecar state races.** The per-instance sidecar at `~/.config/servicenow-cli/state/<instance>.json` is a single file — parallel invocations to the same instance can clobber each other's `update-set use` / `scope set` writes. Prefer `--update-set` / `--scope` flags in automation.
 
-## Promoting changes between instances
+### Promoting changes between instances
 
 Package an update set as XML, move it to another environment, and verify the landing with a cross-instance diff.
 
@@ -336,7 +379,7 @@ sn diff dev prod sys_script_include --key name -o json | jq '.counts'
 
 > **Why no `sn update-set import`?** SN has no clean REST endpoint for XML-upload — the SN-native pattern is cross-instance retrieval (configure one instance as an "Update Source" of another), which requires SN-side config. Queued for a future release once we confirm an approach that doesn't require per-instance setup.
 
-## Use `sn` as an MCP server
+### Use `sn` as an MCP server
 
 Run the CLI as a Model Context Protocol server so Claude Desktop / Cursor / Claude Code agents can call every `sn` command as a tool — same auth, same multi-instance config, no duplicated implementation.
 
@@ -385,7 +428,7 @@ Every leaf becomes one MCP tool with a dot-separated name:
 
 Pick the lowest tier an agent actually needs. Writes are gated on purpose.
 
-## Script sync workflow
+### Script sync
 
 ```bash
 # Pull a record's script fields into ./sn-scripts/
@@ -403,7 +446,7 @@ sn script watch sn-scripts/
 
 Manifest lives at `./.sn-sync.json` in the working directory (one per project / scoped app). Multi-field records (widgets, UI pages) are pulled into a subdirectory with one file per field.
 
-## Running background scripts
+### Run background scripts
 
 ```bash
 # Fire-and-forget

@@ -23,21 +23,33 @@ export class BadRequestError extends ServiceNowError {
 
 export class UnauthorizedError extends ServiceNowError {
   constructor(detail?: string) {
-    super("Unauthorized — check your ServiceNow credentials", 401, detail);
+    super(
+      "Unauthorized — credentials rejected. Check `sn auth status`; if OAuth, re-run `sn auth login -i <instance>`.",
+      401,
+      detail
+    );
     this.name = "UnauthorizedError";
   }
 }
 
 export class ForbiddenError extends ServiceNowError {
   constructor(detail?: string) {
-    super("Forbidden — insufficient permissions", 403, detail);
+    super(
+      "Forbidden — your user lacks the required role for this operation. Verify with `sn user get <your-user>` and the SN role model for the target table.",
+      403,
+      detail
+    );
     this.name = "ForbiddenError";
   }
 }
 
 export class NotFoundError extends ServiceNowError {
   constructor(detail?: string) {
-    super("Not Found — record or table does not exist", 404, detail);
+    super(
+      "Not Found — record or table does not exist. Verify the sys_id / key, or browse via `sn <table> list`.",
+      404,
+      detail
+    );
     this.name = "NotFoundError";
   }
 }
@@ -51,7 +63,11 @@ export class ConflictError extends ServiceNowError {
 
 export class RateLimitError extends ServiceNowError {
   constructor(detail?: string) {
-    super("Rate limit exceeded — too many requests", 429, detail);
+    super(
+      "Rate limit exceeded — SN throttled the request. Back off and retry; for bulk ops, pass a smaller --limit or use `sn batch --parallel 1`.",
+      429,
+      detail
+    );
     this.name = "RateLimitError";
   }
 }

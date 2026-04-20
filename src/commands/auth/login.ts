@@ -227,7 +227,15 @@ async function startCallbackServer(port: number, path: string): Promise<{
       let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<CallbackResult>((_r, rej) => {
         timer = setTimeout(
-          () => rej(new Error(`OAuth callback timed out after ${timeoutMs}ms`)),
+          () =>
+            rej(
+              new Error(
+                `OAuth callback timed out after ${Math.round(timeoutMs / 1000)}s. ` +
+                  `If the browser didn't open or the redirect didn't reach the local server, ` +
+                  `re-run with --no-browser and open the printed URL manually. ` +
+                  `If you see 'Invalid redirect_uri', pass --redirect-uri to match what's registered in the SN OAuth app.`
+              )
+            ),
           timeoutMs
         );
         timer.unref?.();

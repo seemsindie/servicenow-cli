@@ -163,7 +163,10 @@ export class ServiceNowClient {
       response = await fetch(url, init);
     } catch (err) {
       if (err instanceof DOMException && err.name === "TimeoutError") {
-        throw new Error(`Request timed out after ${this.requestTimeoutMs}ms: ${method} ${url}`);
+        throw new Error(
+          `Request timed out after ${Math.round(this.requestTimeoutMs / 1000)}s: ${method} ${url}. ` +
+            `If this instance is slow under load, set requestTimeoutMs in the instance config or split the work into smaller batches.`
+        );
       }
       throw err;
     }
@@ -225,7 +228,10 @@ export class ServiceNowClient {
       response = await fetch(url, init);
     } catch (err) {
       if (err instanceof DOMException && err.name === "TimeoutError") {
-        throw new Error(`Request timed out after ${this.requestTimeoutMs}ms: ${method} ${url}`);
+        throw new Error(
+          `Request timed out after ${Math.round(this.requestTimeoutMs / 1000)}s: ${method} ${url}. ` +
+            `If this instance is slow under load, set requestTimeoutMs in the instance config or split the work into smaller batches.`
+        );
       }
       throw err;
     }
