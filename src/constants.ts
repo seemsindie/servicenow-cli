@@ -10,7 +10,7 @@ import { join } from "path";
 
 export const BIN_NAME = "sn";
 export const DISPLAY_NAME = "servicenow-cli";
-export const VERSION = "0.5.4";
+export const VERSION = "0.5.5";
 
 /**
  * XDG config home (spec: ~/.config by default).
