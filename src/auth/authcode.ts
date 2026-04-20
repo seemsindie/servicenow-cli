@@ -4,13 +4,8 @@
  * Reads access/refresh tokens from the OS keyring. If the access token is
  * expired (or about to expire), POSTs to `{instance}/oauth_token.do` with
  * `grant_type=refresh_token` and writes the rotated tokens back to keyring.
- *
- * Honours the SN_IMPERSONATION_TOKEN_FILE env var — if set and the file
- * contains a valid, unexpired impersonation token for this instance, uses
- * that instead (this is how `sn impersonate` forwards credentials to sub-commands).
  */
 
-import { readFileSync, existsSync } from "fs";
 import { KEYRING_SERVICE, keyringGet, keyringSet } from "../utils/keyring.ts";
 import { logger } from "../utils/logger.ts";
 import type { AuthProvider } from "./types.ts";
@@ -21,13 +16,6 @@ interface TokenResponse {
   expires_in: number;
   refresh_token?: string;
   scope?: string;
-}
-
-interface ImpersonationPayload {
-  instance: string;
-  bearer: string;
-  expires_at: number;
-  user_sys_id?: string;
 }
 
 export function accountKey(instance: string, purpose: "access" | "refresh" | "expires"): string {
@@ -59,13 +47,6 @@ export class AuthCodeProvider implements AuthProvider {
   }
 
   async getHeaders(): Promise<Record<string, string>> {
-    // 1. Check for an active impersonation token
-    const impToken = await this.tryReadImpersonation();
-    if (impToken) {
-      return { Authorization: `Bearer ${impToken}` };
-    }
-
-    // 2. Use stored access token (refreshing if needed)
     const token = await this.getAccessToken();
     return { Authorization: `Bearer ${token}` };
   }
@@ -138,22 +119,5 @@ export class AuthCodeProvider implements AuthProvider {
       );
     }
     return (await response.json()) as TokenResponse;
-  }
-
-  /**
-   * Reads $SN_IMPERSONATION_TOKEN_FILE if set and valid for this instance.
-   */
-  private async tryReadImpersonation(): Promise<string | null> {
-    const path = process.env["SN_IMPERSONATION_TOKEN_FILE"];
-    if (!path || !existsSync(path)) return null;
-    try {
-      const raw = readFileSync(path, "utf-8");
-      const payload = JSON.parse(raw) as ImpersonationPayload;
-      if (payload.instance !== this.instanceName) return null;
-      if (payload.expires_at && Date.now() >= payload.expires_at) return null;
-      return payload.bearer;
-    } catch {
-      return null;
-    }
   }
 }

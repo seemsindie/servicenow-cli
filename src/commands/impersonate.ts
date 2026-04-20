@@ -1,10 +1,6 @@
 import { defineLeaf } from "./_leaf.ts";
 import { resolveUserIdentifier, type ResolvableClient } from "../utils/resolve.ts";
 import { spawn } from "child_process";
-import { writeFileSync, unlinkSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
-import { randomBytes } from "crypto";
 import { AuthCodeProvider } from "../auth/authcode.ts";
 
 export default defineLeaf({
@@ -36,7 +32,6 @@ export default defineLeaf({
     const rc = client as unknown as ResolvableClient;
     const target = await resolveUserIdentifier(rc, args.user as string);
 
-    // Get admin's current access token to authorise the /impersonate call
     const provider = new AuthCodeProvider({
       instanceUrl: instance.url,
       instanceName,
@@ -56,15 +51,23 @@ export default defineLeaf({
     const subCmd = rawArgv[dashIdx + 1]!;
     const subArgs = rawArgv.slice(dashIdx + 2);
 
-    // Request impersonation token
+    // Capture the admin's original user sys_id so we can revert on exit.
+    const adminSysId = await fetchCurrentUserSysId(instance.url, adminHeaders);
+    if (!adminSysId) {
+      throw new Error(
+        `Could not determine admin user sys_id (GET /api/now/ui/user/current_user) — cannot safely impersonate without knowing who to revert to.`
+      );
+    }
+
+    // Flip the OAuth session to the target user.
+    // SN's impersonate endpoint doesn't mint a new bearer — it flips the
+    // session associated with the admin's access token server-side, so
+    // subsequent calls with the same bearer run as the target user.
     const resp = await fetch(
       `${instance.url}/api/now/ui/impersonate/${target.sys_id}`,
       {
         method: "POST",
-        headers: {
-          ...adminHeaders,
-          Accept: "application/json",
-        },
+        headers: { ...adminHeaders, Accept: "application/json" },
       }
     );
     if (!resp.ok) {
@@ -74,75 +77,71 @@ export default defineLeaf({
           `admin may lack the "admin" role or the impersonator plugin may be disabled.`
       );
     }
-    const body = (await resp.json()) as {
-      access_token?: string;
-      expires_in?: number;
-      result?: { access_token?: string; expires_in?: number };
-    };
-    const token =
-      body.access_token ?? body.result?.access_token;
-    const expiresIn =
-      body.expires_in ?? body.result?.expires_in ?? 1800;
-    if (!token) {
+
+    // Verify the session actually flipped.
+    const afterSysId = await fetchCurrentUserSysId(instance.url, adminHeaders);
+    if (afterSysId !== target.sys_id) {
       throw new Error(
-        `Impersonation response had no access_token — response shape unexpected: ${JSON.stringify(
-          body
-        ).slice(0, 300)}`
+        `Impersonation did not take effect — /current_user still reports ${afterSysId ?? "unknown"} instead of ${target.sys_id}. ` +
+          `This instance may not support OAuth-bearer session flipping for impersonation.`
       );
     }
 
-    // Write the impersonation payload to a temp file
-    const tmpPath = join(
-      tmpdir(),
-      `sn-impersonate-${randomBytes(8).toString("hex")}.json`
-    );
-    writeFileSync(
-      tmpPath,
-      JSON.stringify({
-        instance: instanceName,
-        bearer: token,
-        expires_at: Date.now() + expiresIn * 1000,
-        user_sys_id: target.sys_id,
-      }),
-      { mode: 0o600 }
-    );
-
     process.stderr.write(
-      `→ impersonating ${target.display ?? target.original} on ${instanceName} (${expiresIn}s)\n`
+      `→ impersonating ${target.display ?? target.original} on ${instanceName} (will revert on exit)\n`
     );
 
-    // Spawn sub-command with the env var pointing at the temp file
-    const child = spawn(subCmd, subArgs, {
-      stdio: "inherit",
-      env: { ...process.env, SN_IMPERSONATION_TOKEN_FILE: tmpPath },
-    });
-
-    const cleanup = () => {
+    let reverted = false;
+    const revert = async () => {
+      if (reverted) return;
+      reverted = true;
       try {
-        unlinkSync(tmpPath);
+        await fetch(`${instance.url}/api/now/ui/impersonate/${adminSysId}`, {
+          method: "POST",
+          headers: { ...adminHeaders, Accept: "application/json" },
+        });
       } catch {
-        // best-effort
+        process.stderr.write(
+          `\nwarning: failed to revert impersonation — run \`sn auth logout -i ${instanceName} && sn auth login -i ${instanceName}\` if subsequent commands run as the wrong user.\n`
+        );
       }
     };
 
+    const child = spawn(subCmd, subArgs, { stdio: "inherit" });
+
     await new Promise<void>((resolve) => {
-      child.on("exit", (code) => {
-        cleanup();
+      child.on("exit", async (code) => {
+        await revert();
         process.exit(code ?? 0);
+        resolve();
       });
-      child.on("error", (err) => {
-        cleanup();
+      child.on("error", async (err) => {
+        await revert();
         process.stderr.write(`\nimpersonate: failed to spawn '${subCmd}': ${err.message}\n`);
         process.exit(127);
       });
-      // Forward signals so Ctrl-C aborts the child cleanly
       for (const sig of ["SIGINT", "SIGTERM"] as const) {
         process.on(sig, () => {
           child.kill(sig);
         });
       }
-      // Never resolves — we exit in the handlers above
-      void resolve;
     });
   },
 });
+
+async function fetchCurrentUserSysId(
+  instanceUrl: string,
+  headers: Record<string, string>
+): Promise<string | undefined> {
+  try {
+    const resp = await fetch(`${instanceUrl}/api/now/ui/user/current_user`, {
+      headers: { ...headers, Accept: "application/json" },
+    });
+    if (!resp.ok) return undefined;
+    const data = (await resp.json()) as { result?: Record<string, unknown> };
+    const sysId = data.result?.["sys_id"];
+    return typeof sysId === "string" ? sysId : undefined;
+  } catch {
+    return undefined;
+  }
+}
