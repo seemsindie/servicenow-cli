@@ -3,6 +3,8 @@ import { joinQueries } from "../utils/query.ts";
 import { getFieldPreset } from "../formatters/field-presets.ts";
 import { pollLoop } from "../utils/poll-factory.ts";
 import { formatSnDateTime, parseSnDateTime } from "../utils/sn-datetime.ts";
+import { AmbClient } from "../amb/client.ts";
+import { createAuthProvider } from "../auth/index.ts";
 
 export default defineLeaf({
   meta: {
@@ -36,10 +38,25 @@ export default defineLeaf({
       default: "100",
       description: "Max records per poll (1-500)",
     },
+    backend: {
+      type: "string",
+      default: "poll",
+      description: "Watch backend: poll (default) | amb (push via CometD long-poll)",
+    },
+    channel: {
+      type: "string",
+      description:
+        "AMB channel path (used with --backend amb). Default: /sn-cli/record/<table>",
+    },
   },
   async run(ctx, args) {
-    const client = ctx.client();
     const table = args.table as string;
+    const backend = (args.backend as string) === "amb" ? "amb" : "poll";
+    if (backend === "amb") {
+      await runAmbBackend(ctx, args, table);
+      return;
+    }
+    const client = ctx.client();
     const intervalMs = Math.max(1000, (parseInt(args.interval as string, 10) || 5) * 1000);
     const limit = Math.max(1, Math.min(500, parseInt(args.limit as string, 10) || 100));
 
@@ -97,3 +114,45 @@ export default defineLeaf({
     });
   },
 });
+
+async function runAmbBackend(
+  ctx: Parameters<Parameters<typeof defineLeaf>[0]["run"]>[0],
+  args: Record<string, unknown>,
+  table: string
+): Promise<void> {
+  const instanceName = ctx.flags.instance ?? ctx.registry.getDefaultName();
+  const instance = ctx.config.instances.find((i) => i.name === instanceName);
+  if (!instance) throw new Error(`Unknown instance: ${instanceName}`);
+
+  const channel =
+    (args["channel"] as string | undefined) ?? `/sn-cli/record/${table}`;
+  const auth = createAuthProvider(instance.url, instance.auth, instanceName);
+  const client = new AmbClient({ baseUrl: instance.url, auth });
+
+  const ctrl = new AbortController();
+  const cleanup = async (): Promise<void> => {
+    ctrl.abort();
+    await client.stop();
+  };
+  for (const sig of ["SIGINT", "SIGTERM"] as const) {
+    process.on(sig, () => {
+      process.stderr.write(`\n[watch amb] stopped\n`);
+      void cleanup().then(() => process.exit(0));
+    });
+  }
+
+  process.stderr.write(
+    `[watch amb] ${channel} via ${instance.url}/amb — Ctrl-C to stop\n` +
+      `            (if no events arrive, run \`sn amb install-publisher ${table}\` first)\n`
+  );
+
+  await client.start([channel]);
+  try {
+    for await (const event of client.next(ctrl.signal)) {
+      process.stdout.write(JSON.stringify(event.data) + "\n");
+      if (args["once"]) break;
+    }
+  } finally {
+    await client.stop();
+  }
+}

@@ -16,6 +16,7 @@
   - [Promoting changes between instances](#promoting-changes-between-instances)
   - [Script sync](#script-sync)
   - [Run background scripts](#run-background-scripts)
+  - [Real-time events via AMB (experimental)](#real-time-events-via-amb-experimental)
   - [Use `sn` as an MCP server](#use-sn-as-an-mcp-server)
 - [Global flags](#global-flags)
 - [Exit codes](#exit-codes)
@@ -85,6 +86,12 @@
 ### Dev loop
 - `sn edit <table> <id> [--field <name>] [--no-confirm]` — open a record (or one field) in `$EDITOR`, show a colored diff, prompt for confirmation, then PATCH only what changed. Dirty-write detection via `sys_mod_count` re-check. Reference fields get `# → Display Name` annotations.
 - `sn openapi import <spec.{yaml,json}>` — scaffold a Scripted REST API + one operation per path/method from an OpenAPI 3.x spec. `--dry-run` prints the plan.
+
+### Real-time
+- `sn watch <table> --backend amb [--channel PATH]` — push-based watch via ServiceNow's AMB (CometD long-poll). Near-zero latency when channels are configured. Default backend stays `poll`. Experimental — see Workflows section for caveats.
+- `sn amb install-publisher <table>` — scaffolds the SN-side Business Rule + `sys_amb_processor` for a table. Idempotent.
+- `sn amb subscribe <channel> [--once]` — raw CometD subscriber for any AMB channel. Good for debugging.
+- `sn amb publish <channel> <json>` — fire an event from SN via `sys_trigger`. Pairs with `subscribe` for round-trip testing.
 
 ### LLM integration
 - `sn mcp serve [--allow-writes] [--allow-admin]` — expose every `sn` leaf as an MCP tool over stdio. Drop into Claude Desktop / Cursor / Claude Code config and the agent can run any command you can. Read-only by default.
@@ -378,6 +385,34 @@ sn diff dev prod sys_script_include --key name -o json | jq '.counts'
 `sn update-set export` also has a `--format json` mode that dumps the parent `sys_update_set` row plus every `sys_update_xml` child, useful for structural diffs / version control when you want to track a set's contents as code.
 
 > **Why no `sn update-set import`?** SN has no clean REST endpoint for XML-upload — the SN-native pattern is cross-instance retrieval (configure one instance as an "Update Source" of another), which requires SN-side config. Queued for a future release once we confirm an approach that doesn't require per-instance setup.
+
+### Real-time events via AMB (experimental)
+
+ServiceNow's Asynchronous Message Bus (CometD long-poll) can stream record changes with near-zero latency instead of polling. `sn watch --backend amb` subscribes to an AMB channel; `sn amb install-publisher <table>` scaffolds the SN-side pieces (Business Rule + `sys_amb_processor` registration).
+
+```bash
+# One-time SN-side setup — queues a background script that creates a Business
+# Rule for <table> + registers the channel via sys_amb_processor.
+sn amb install-publisher incident -i dev
+
+# Subscribe to record-change events (near-zero latency on a configured instance)
+sn watch incident --backend amb -i dev
+
+# Or subscribe to any channel directly
+sn amb subscribe /sn-cli/record/incident -i dev
+sn amb subscribe /some/other/channel -i dev --path /cometd   # if /amb returns 404
+
+# Publish a test event (via sys_trigger; the subscribe side should receive it)
+sn amb publish /debug/test '{"hello":"world"}' -i dev
+```
+
+**Known limitations:**
+
+- `sys_amb_processor` is ACL-locked against direct Table API writes, so `install-publisher` shells its work through a `sys_trigger` background script that runs as the system user. On some instances the ACL blocks that too — when that happens the trigger logs `[sn-cli install] processor insert returned null` to `syslog` and an admin has to create the processor manually in the UI (Channel Processor > New, `channel_name = /sn-cli/record/<table>`, `public = true`).
+- Subscriptions to newly-registered channels may be rejected with `404::message_deleted` until the instance refreshes its channel cache. On a fresh install this sometimes takes a minute; on some PDIs it needs an admin intervention (node restart or `cache.do` flush).
+- AMB's auth model in the SN UI is session-cookie + X-UserToken (CSRF). Bearer/basic auth works for `/amb/handshake` and `/amb/connect`, but if your instance enforces stricter AMB auth you'll see subscribe rejections. Using the session-cookie handoff pattern from `sn impersonate` is a possible future fix.
+
+When it works it's fast and clean. When it doesn't, fall back to `sn watch` (polling) — same flags, different backend.
 
 ### Use `sn` as an MCP server
 

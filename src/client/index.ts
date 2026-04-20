@@ -125,10 +125,11 @@ export class ServiceNowClient {
   async requestRaw(
     method: string,
     path: string,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    opts: { timeoutMs?: number } = {}
   ): Promise<Response> {
     const url = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
-    return this.request(method, url, body);
+    return this.request(method, url, body, opts);
   }
 
   /**
@@ -139,7 +140,8 @@ export class ServiceNowClient {
     method: string,
     path: string,
     body: ArrayBufferView | ArrayBuffer | Blob | string,
-    contentType: string
+    contentType: string,
+    opts: { timeoutMs?: number } = {}
   ): Promise<Response> {
     const url = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
     const authHeaders = await this.auth.getHeaders();
@@ -152,19 +154,20 @@ export class ServiceNowClient {
 
     logger.debug(`${method} ${url} (binary, ${contentType})`);
 
+    const timeoutMs = opts.timeoutMs ?? this.requestTimeoutMs;
     let response: Response;
     try {
       const init = {
         method,
         headers,
         body,
-        signal: AbortSignal.timeout(this.requestTimeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       } as unknown as RequestInit;
       response = await fetch(url, init);
     } catch (err) {
       if (err instanceof DOMException && err.name === "TimeoutError") {
         throw new Error(
-          `Request timed out after ${Math.round(this.requestTimeoutMs / 1000)}s: ${method} ${url}. ` +
+          `Request timed out after ${Math.round(timeoutMs / 1000)}s: ${method} ${url}. ` +
             `If this instance is slow under load, set requestTimeoutMs in the instance config or split the work into smaller batches.`
         );
       }
@@ -201,7 +204,7 @@ export class ServiceNowClient {
     method: string,
     url: string,
     body?: Record<string, unknown>,
-    opts: { expect404?: boolean } = {}
+    opts: { expect404?: boolean; timeoutMs?: number } = {}
   ): Promise<Response> {
     const authHeaders = await this.auth.getHeaders();
 
@@ -210,10 +213,11 @@ export class ServiceNowClient {
       Accept: "application/json",
     };
 
+    const timeoutMs = opts.timeoutMs ?? this.requestTimeoutMs;
     const init: RequestInit = {
       method,
       headers,
-      signal: AbortSignal.timeout(this.requestTimeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
     };
 
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
@@ -229,7 +233,7 @@ export class ServiceNowClient {
     } catch (err) {
       if (err instanceof DOMException && err.name === "TimeoutError") {
         throw new Error(
-          `Request timed out after ${Math.round(this.requestTimeoutMs / 1000)}s: ${method} ${url}. ` +
+          `Request timed out after ${Math.round(timeoutMs / 1000)}s: ${method} ${url}. ` +
             `If this instance is slow under load, set requestTimeoutMs in the instance config or split the work into smaller batches.`
         );
       }
