@@ -40,6 +40,9 @@ import completion from "./completion/index.ts";
 import codegen from "./codegen/index.ts";
 import log from "./log/index.ts";
 import watch from "./watch.ts";
+import auth from "./auth/index.ts";
+import impersonate from "./impersonate.ts";
+import webhook from "./webhook/index.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -83,4 +86,7 @@ export const subCommands: Record<string, CommandDef> = {
   codegen,
   log,
   watch,
+  auth,
+  impersonate,
+  webhook,
 };

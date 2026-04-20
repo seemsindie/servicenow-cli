@@ -20,9 +20,21 @@ const AuthOAuthSchema = z.object({
   password: z.string().optional(),
 });
 
+/**
+ * OAuth 2.0 Authorization Code + PKCE flow. Tokens live in the OS keyring
+ * (not config) after `sn auth login`. Only clientId (optional secret for
+ * confidential clients) is in config.
+ */
+const AuthOAuthAuthCodeSchema = z.object({
+  type: z.literal("oauth-authcode"),
+  clientId: z.string().min(1, "clientId is required"),
+  clientSecret: z.string().optional(),
+});
+
 const AuthSchema = z.discriminatedUnion("type", [
   AuthBasicSchema,
   AuthOAuthSchema,
+  AuthOAuthAuthCodeSchema,
 ]);
 
 // ── Per-instance schema ──────────────────────────────────────────────

@@ -32,7 +32,7 @@ export class InstanceRegistry {
         throw new Error(`Duplicate instance name: "${inst.name}"`);
       }
 
-      const auth = createAuthProvider(inst.url, inst.auth);
+      const auth = createAuthProvider(inst.url, inst.auth, inst.name);
       const client = new ServiceNowClient(inst.url, auth, inst.requestTimeoutMs);
 
       this.clients.set(inst.name, client);

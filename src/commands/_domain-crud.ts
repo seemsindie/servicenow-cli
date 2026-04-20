@@ -103,8 +103,11 @@ function argsToPayload(
       continue;
     }
 
-    // Skip our factory's own flags + global flags that shouldn't hit the payload
+    // Skip factory's own flags + global flags — but NOT if the domain explicitly
+    // declares the name as a real create arg (e.g. sp_widget.id, sys_script_include.name).
+    const isDeclaredCreateArg = !!(cfg.createArgs && cfg.createArgs[argName]);
     if (
+      !isDeclaredCreateArg &&
       [
         "query", "limit", "offset", "instance", "output", "config", "fields",
         "quiet", "debug", "no-color", "id", "yes", "update-set", "scope",
@@ -112,7 +115,7 @@ function argsToPayload(
       ].includes(argName)
     ) continue;
 
-    if (cfg.listFilters[argName]) continue;
+    if (cfg.listFilters[argName] && !isDeclaredCreateArg) continue;
 
     const snField = fieldMap[argName] ?? kebabToSnake(argName);
     data[snField] = argValue;

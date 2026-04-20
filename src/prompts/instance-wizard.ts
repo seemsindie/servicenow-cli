@@ -62,8 +62,9 @@ export async function runInstanceWizard(opts: { initial?: boolean } = {}): Promi
   const authType = await p.select({
     message: "Auth method",
     options: [
-      { value: "basic", label: "Basic (username + password)" },
-      { value: "oauth", label: "OAuth 2.0 (client credentials + user)" },
+      { value: "basic", label: "Basic (username + password) — simplest, stores password in config" },
+      { value: "oauth-authcode", label: "OAuth Authorization Code + PKCE — recommended, uses keyring" },
+      { value: "oauth", label: "OAuth 2.0 password grant (legacy)" },
     ],
   });
   if (p.isCancel(authType)) {
@@ -91,7 +92,29 @@ export async function runInstanceWizard(opts: { initial?: boolean } = {}): Promi
       return null;
     }
     auth = { type: "basic", username, password };
+  } else if (authType === "oauth-authcode") {
+    const clientId = await p.text({
+      message: "OAuth client ID",
+      validate: (v) => (v ? undefined : "Client ID is required"),
+    });
+    if (p.isCancel(clientId)) {
+      p.cancel("Cancelled");
+      return null;
+    }
+    const clientSecret = await p.password({
+      message: "OAuth client secret (leave blank if public client)",
+    });
+    if (p.isCancel(clientSecret)) {
+      p.cancel("Cancelled");
+      return null;
+    }
+    auth = {
+      type: "oauth-authcode",
+      clientId,
+      ...(clientSecret ? { clientSecret } : {}),
+    };
   } else {
+    // legacy password grant
     const clientId = await p.text({
       message: "OAuth client ID",
       validate: (v) => (v ? undefined : "Client ID is required"),

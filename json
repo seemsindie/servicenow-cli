@@ -1,0 +1,700 @@
+/**
+ * @seemsindie/servicenow-cli — generated TypeScript types for `incident`.
+ *
+ * Label:   Incident
+ * Extends: Task
+ * Source:  https://dev384510.service-now.com
+ *
+ * Regenerate:  sn codegen typescript incident
+ *
+ * Field types reflect parsed JSON from the Table API; SN returns strings on
+ * the wire, so downstream code should coerce numbers/booleans at the boundary.
+ */
+
+/* eslint-disable */
+
+/** Choice values for `incident.category` */
+export type IncidentCategory = "inquiry" | "software" | "hardware" | "network" | "database" | "password_reset";
+
+export const IncidentCategoryLabels: Record<IncidentCategory, string> = {
+  "inquiry": "Inquiry / Help",
+  "software": "Software",
+  "hardware": "Hardware",
+  "network": "Network",
+  "database": "Database",
+  "password_reset": "Password Reset",
+};
+
+/** Choice values for `incident.close_code` */
+export type IncidentCloseCode = "Duplicate" | "Known error" | "No resolution provided" | "Resolved by caller" | "Resolved by change" | "Resolved by problem" | "Resolved by request" | "Solution provided" | "Workaround provided" | "User error";
+
+export const IncidentCloseCodeLabels: Record<IncidentCloseCode, string> = {
+  "Duplicate": "Duplicate",
+  "Known error": "Known error",
+  "No resolution provided": "No resolution provided",
+  "Resolved by caller": "Resolved by caller",
+  "Resolved by change": "Resolved by change",
+  "Resolved by problem": "Resolved by problem",
+  "Resolved by request": "Resolved by request",
+  "Solution provided": "Solution provided",
+  "Workaround provided": "Workaround provided",
+  "User error": "User error",
+};
+
+/** Choice values for `incident.contact_type` */
+export type IncidentContactType = "chat" | "email" | "phone" | "self-service" | "virtual_agent" | "walk-in";
+
+export const IncidentContactTypeLabels: Record<IncidentContactType, string> = {
+  "chat": "Chat",
+  "email": "Email",
+  "phone": "Phone",
+  "self-service": "Self-service",
+  "virtual_agent": "Virtual Agent",
+  "walk-in": "Walk-in",
+};
+
+/** Choice values for `incident.hold_reason` */
+export type IncidentHoldReason = "1" | "5" | "3" | "4";
+
+export const IncidentHoldReasonLabels: Record<IncidentHoldReason, string> = {
+  "1": "Awaiting Caller",
+  "5": "Awaiting Change",
+  "3": "Awaiting Problem",
+  "4": "Awaiting Vendor",
+};
+
+/** Choice values for `incident.incident_state` */
+export type IncidentIncidentState = "1" | "2" | "3" | "6" | "7" | "8";
+
+export const IncidentIncidentStateLabels: Record<IncidentIncidentState, string> = {
+  "1": "New",
+  "2": "In Progress",
+  "3": "On Hold",
+  "6": "Resolved",
+  "7": "Closed",
+  "8": "Canceled",
+};
+
+/** Choice values for `incident.notify` */
+export type IncidentNotify = "1" | "2" | "3";
+
+export const IncidentNotifyLabels: Record<IncidentNotify, string> = {
+  "1": "Do Not Notify",
+  "2": "Send Email",
+  "3": "Telephone",
+};
+
+/** Choice values for `incident.severity` */
+export type IncidentSeverity = "1" | "2" | "3";
+
+export const IncidentSeverityLabels: Record<IncidentSeverity, string> = {
+  "1": "1 - High",
+  "2": "2 - Medium",
+  "3": "3 - Low",
+};
+
+/** Choice values for `incident.state` */
+export type IncidentState = "1" | "2" | "3" | "6" | "7" | "8";
+
+export const IncidentStateLabels: Record<IncidentState, string> = {
+  "1": "New",
+  "2": "In Progress",
+  "3": "On Hold",
+  "6": "Resolved",
+  "7": "Closed",
+  "8": "Canceled",
+};
+
+/** Choice values for `incident.subcategory` */
+export type IncidentSubcategory = "memory" | "mouse" | "ip address" | "internal application" | "sql server" | "disk" | "vpn" | "dns" | "os" | "monitor" | "wireless" | "antivirus" | "db2" | "email" | "keyboard" | "dhcp" | "email" | "oracle" | "cpu";
+
+export const IncidentSubcategoryLabels: Record<IncidentSubcategory, string> = {
+  "memory": "Memory",
+  "mouse": "Mouse",
+  "ip address": "IP Address",
+  "internal application": "Internal Application",
+  "sql server": "MS SQL Server",
+  "disk": "Disk",
+  "vpn": "VPN",
+  "dns": "DNS",
+  "os": "Operating System",
+  "monitor": "Monitor",
+  "wireless": "Wireless",
+  "antivirus": "Antivirus",
+  "db2": "DB2",
+  "email": "Email",
+  "keyboard": "Keyboard",
+  "dhcp": "DHCP",
+  "email": "Email",
+  "oracle": "Oracle",
+  "cpu": "CPU",
+};
+
+export interface Incident {
+  /**
+   * Active
+   * Max length: 40
+   */
+  active?: boolean;
+
+  /**
+   * Activity due
+   * Max length: 40
+   * due_date — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  activity_due?: string;
+
+  /**
+   * Additional assignee list
+   * References `sys_user`.sys_id
+   * Max length: 4000
+   */
+  additional_assignee_list?: string;
+
+  /**
+   * Approval
+   * Max length: 40
+   */
+  approval?: string;
+
+  /**
+   * Approval history
+   * Max length: 4000
+   */
+  approval_history?: string;
+
+  /**
+   * Approval set
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  approval_set?: string;
+
+  /**
+   * Assigned to
+   * References `sys_user`.sys_id
+   * Max length: 32
+   */
+  assigned_to?: string;
+
+  /**
+   * Assignment group
+   * References `sys_user_group`.sys_id
+   * Max length: 32
+   */
+  assignment_group?: string;
+
+  /**
+   * Business duration
+   * Max length: 40
+   * internal_type=glide_duration
+   */
+  business_duration?: string;
+
+  /**
+   * Business impact
+   * Max length: 4000
+   */
+  business_impact?: string;
+
+  /**
+   * Service
+   * References `cmdb_ci_service`.sys_id
+   * Max length: 32
+   */
+  business_service?: string;
+
+  /**
+   * Business resolve time
+   * Max length: 40
+   */
+  business_stc?: number;
+
+  /**
+   * Duration
+   * Max length: 40
+   * internal_type=glide_duration
+   */
+  calendar_duration?: string;
+
+  /**
+   * Resolve time
+   * Max length: 40
+   */
+  calendar_stc?: number;
+
+  /**
+   * Caller
+   * References `sys_user`.sys_id
+   * Max length: 32
+   */
+  caller_id?: string;
+
+  /**
+   * Category
+   * Max length: 40
+   */
+  category?: IncidentCategory;
+
+  /**
+   * Probable cause
+   * Max length: 4000
+   */
+  cause?: string;
+
+  /**
+   * Child Incidents
+   * Max length: 40
+   */
+  child_incidents?: number;
+
+  /**
+   * Close code
+   * Max length: 40
+   */
+  close_code?: IncidentCloseCode;
+
+  /**
+   * Close notes
+   * Max length: 4000
+   */
+  close_notes?: string;
+
+  /**
+   * Closed
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  closed_at?: string;
+
+  /**
+   * Closed by
+   * References `sys_user`.sys_id
+   * Max length: 32
+   */
+  closed_by?: string;
+
+  /**
+   * Configuration item
+   * References `cmdb_ci`.sys_id
+   * Max length: 32
+   */
+  cmdb_ci?: string;
+
+  /**
+   * Additional comments
+   * Max length: 4000
+   */
+  comments?: string;
+
+  /**
+   * Comments and Work notes
+   * Max length: 4000
+   */
+  comments_and_work_notes?: string;
+
+  /**
+   * Company
+   * References `core_company`.sys_id
+   * Max length: 32
+   */
+  company?: string;
+
+  /**
+   * Contact type
+   * Max length: 40
+   */
+  contact_type?: IncidentContactType;
+
+  /**
+   * Contract
+   * References `ast_contract`.sys_id
+   * Max length: 32
+   */
+  contract?: string;
+
+  /**
+   * Correlation display
+   * Max length: 100
+   */
+  correlation_display?: string;
+
+  /**
+   * Correlation ID
+   * Max length: 100
+   */
+  correlation_id?: string;
+
+  /**
+   * Delivery plan
+   * References `sc_cat_item_delivery_plan`.sys_id
+   * Max length: 32
+   */
+  delivery_plan?: string;
+
+  /**
+   * Delivery task
+   * References `sc_cat_item_delivery_task`.sys_id
+   * Max length: 32
+   */
+  delivery_task?: string;
+
+  /**
+   * Description
+   * Max length: 4000
+   */
+  description?: string;
+
+  /**
+   * Due date
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  due_date?: string;
+
+  /**
+   * Escalation
+   * Max length: 40
+   */
+  escalation?: number;
+
+  /**
+   * Expected start
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  expected_start?: string;
+
+  /**
+   * Follow up
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  follow_up?: string;
+
+  /**
+   * Group list
+   * References `sys_user_group`.sys_id
+   * Max length: 4000
+   */
+  group_list?: string;
+
+  /**
+   * On hold reason
+   * Max length: 40
+   */
+  hold_reason?: IncidentHoldReason;
+
+  /**
+   * Impact
+   * Max length: 40
+   */
+  impact?: number;
+
+  /**
+   * Incident state
+   * Max length: 40
+   */
+  incident_state?: IncidentIncidentState;
+
+  /**
+   * Knowledge
+   * Max length: 40
+   */
+  knowledge?: boolean;
+
+  /**
+   * Location
+   * References `cmn_location`.sys_id
+   * Max length: 32
+   */
+  location?: string;
+
+  /**
+   * Made SLA
+   * Max length: 40
+   */
+  made_sla?: boolean;
+
+  /**
+   * Notify
+   * Max length: 40
+   */
+  notify?: IncidentNotify;
+
+  /**
+   * Number
+   * Max length: 40
+   */
+  number?: string;
+
+  /**
+   * Opened
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  opened_at?: string;
+
+  /**
+   * Opened by
+   * References `sys_user`.sys_id
+   * Max length: 32
+   */
+  opened_by?: string;
+
+  /**
+   * Order
+   * Max length: 40
+   */
+  order?: number;
+
+  /**
+   * Origin
+   * Max length: 32
+   */
+  origin_id?: string;
+
+  /**
+   * Origin table
+   * Max length: 80
+   */
+  origin_table?: string;
+
+  /**
+   * Parent
+   * References `task`.sys_id
+   * Max length: 32
+   */
+  parent?: string;
+
+  /**
+   * Parent Incident
+   * References `incident`.sys_id
+   * Max length: 32
+   */
+  parent_incident?: string;
+
+  /**
+   * Priority
+   * Max length: 40
+   */
+  priority?: number;
+
+  /**
+   * Reassignment count
+   * Max length: 40
+   */
+  reassignment_count?: number;
+
+  /**
+   * Reopen count
+   * Max length: 40
+   */
+  reopen_count?: number;
+
+  /**
+   * Last reopened by
+   * References `sys_user`.sys_id
+   * Max length: 32
+   */
+  reopened_by?: string;
+
+  /**
+   * Last reopened at
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  reopened_time?: string;
+
+  /**
+   * Resolved
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  resolved_at?: string;
+
+  /**
+   * Resolved by
+   * References `sys_user`.sys_id
+   * Max length: 32
+   */
+  resolved_by?: string;
+
+  /**
+   * Transfer reason
+   * Max length: 40
+   */
+  route_reason?: number;
+
+  /**
+   * Service offering
+   * References `service_offering`.sys_id
+   * Max length: 32
+   */
+  service_offering?: string;
+
+  /**
+   * Severity
+   * Max length: 40
+   */
+  severity?: IncidentSeverity;
+
+  /**
+   * Short description
+   * Max length: 160
+   */
+  short_description?: string;
+
+  /**
+   * SLA due
+   * Max length: 40
+   * due_date — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  sla_due?: string;
+
+  /**
+   * State
+   * Max length: 40
+   */
+  state?: IncidentState;
+
+  /**
+   * Subcategory
+   * Max length: 40
+   */
+  subcategory?: IncidentSubcategory;
+
+  /**
+   * Task type
+   * Max length: 80
+   */
+  sys_class_name?: string;
+
+  /**
+   * Created by
+   * Max length: 40
+   */
+  sys_created_by?: string;
+
+  /**
+   * Created
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  sys_created_on?: string;
+
+  /**
+   * Domain
+   * Max length: 32
+   */
+  sys_domain?: string;
+
+  /**
+   * Domain Path
+   * Max length: 255
+   */
+  sys_domain_path?: string;
+
+  /**
+   * Sys ID
+   * Max length: 32
+   */
+  sys_id?: string;
+
+  /**
+   * Updates
+   * Max length: 40
+   */
+  sys_mod_count?: number;
+
+  /**
+   * Updated by
+   * Max length: 40
+   */
+  sys_updated_by?: string;
+
+  /**
+   * Updated
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  sys_updated_on?: string;
+
+  /**
+   * Effective number
+   * Max length: 40
+   */
+  task_effective_number?: string;
+
+  /**
+   * Time worked
+   * Max length: 40
+   * internal_type=timer
+   */
+  time_worked?: string;
+
+  /**
+   * Universal Request
+   * References `task`.sys_id
+   * Max length: 32
+   */
+  universal_request?: string;
+
+  /**
+   * Upon approval
+   * Max length: 40
+   */
+  upon_approval?: string;
+
+  /**
+   * Upon reject
+   * Max length: 40
+   */
+  upon_reject?: string;
+
+  /**
+   * Urgency
+   * Max length: 40
+   */
+  urgency?: number;
+
+  /**
+   * User input
+   * Max length: 4000
+   */
+  user_input?: string;
+
+  /**
+   * Watch list
+   * References `sys_user`.sys_id
+   * Max length: 4000
+   */
+  watch_list?: string;
+
+  /**
+   * Actual end
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  work_end?: string;
+
+  /**
+   * Work notes
+   * Max length: 4000
+   */
+  work_notes?: string;
+
+  /**
+   * Work notes list
+   * References `sys_user`.sys_id
+   * Max length: 4000
+   */
+  work_notes_list?: string;
+
+  /**
+   * Actual start
+   * Max length: 40
+   * glide_date_time — ServiceNow datetime format (e.g. "2026-04-20 15:30:00")
+   */
+  work_start?: string;
+}

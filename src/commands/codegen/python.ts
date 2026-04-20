@@ -1,35 +1,19 @@
 import { defineLeaf } from "../_leaf.ts";
 import { writeFileSync } from "fs";
-import { generateTypeScript } from "../../utils/codegen-ts.ts";
 import { fetchCodegenData } from "../../utils/codegen-fetch.ts";
+import { generatePython } from "../../utils/codegen-python.ts";
 
 export default defineLeaf({
   meta: {
-    name: "typescript",
-    description: "Emit a TypeScript interface for a SN table (from sys_dictionary + sys_choice)",
+    name: "python",
+    description: "Emit Pydantic v2 models + Enum classes for a SN table",
   },
   args: {
-    table: {
-      type: "positional",
-      description: "Table name (e.g. incident, sys_user, cmdb_ci_server)",
-      required: true,
-    },
-    "out-file": {
-      type: "string",
-      description: "Write to file (default: stdout)",
-    },
-    "no-parent": {
-      type: "boolean",
-      description: "Skip walking super_class chain (omit inherited fields)",
-    },
-    "no-system": {
-      type: "boolean",
-      description: "Skip system fields (sys_id, sys_created_on, sys_mod_count, ...)",
-    },
-    "include-inactive": {
-      type: "boolean",
-      description: "Include inactive dictionary entries (default: skip)",
-    },
+    table: { type: "positional", description: "Table name", required: true },
+    "out-file": { type: "string", description: "Write to file (default: stdout)" },
+    "no-parent": { type: "boolean", description: "Skip super_class chain" },
+    "no-system": { type: "boolean", description: "Skip system fields (sys_*)" },
+    "include-inactive": { type: "boolean" },
   },
   async run(ctx, args) {
     const data = await fetchCodegenData(
@@ -38,13 +22,10 @@ export default defineLeaf({
       args.table as string,
       { includeParent: !args["no-parent"] }
     );
-
-    const code = generateTypeScript({
-      ...data,
+    const code = generatePython(data, {
       includeSystem: !args["no-system"],
       skipInactive: !args["include-inactive"],
     });
-
     const outPath = args["out-file"] as string | undefined;
     if (outPath) {
       writeFileSync(outPath, code, "utf-8");

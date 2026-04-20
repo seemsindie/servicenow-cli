@@ -74,16 +74,28 @@ Reframed around **developers using SN as a backend for their own apps/services**
 - [x] `sn watch <table> [--follow] [--since] [--once]` — JSONL stream of new/updated records, pipeable to jq/slack/anything
 - [x] README section "Using ServiceNow as a backend for your own app"
 
-## Phase 5 ideas (not committed)
+## Phase 5: auth, impersonation, codegen expansion, webhooks (shipped, v0.5.0)
 
-- [ ] `sn auth login` — OAuth Auth-Code + PKCE helper (local loopback, keyring storage)
-- [ ] `sn impersonate <user> -- <cmd>` — scoped impersonation for sub-commands
+- [x] `sn auth login|logout|status` — OAuth2 Authorization Code + PKCE, local-loopback callback, tokens in OS keyring
+- [x] OS keyring shell-out (macOS `security` / Linux `secret-tool` / Windows `cmdkey` + PowerShell)
+- [x] Encrypted-file fallback (`$XDG_DATA_HOME/servicenow-cli/secrets.enc`, AES-256-GCM)
+- [x] `AuthCodeProvider` with refresh-token rotation + impersonation token support
+- [x] `sn codegen python` — Pydantic v2 `BaseModel` + `str Enum`
+- [x] `sn codegen go` — struct + `json` tags + typed string constants (acronym-aware: `sys_id`→`SysID`, `http_url`→`HTTPURL`)
+- [x] Shared `src/utils/codegen-fetch.ts` — single fetch path for all three emitters
+- [x] `sn impersonate <user> -- <cmd>` — OAuth-only scoped impersonation via temp token file
+- [x] `sn webhook create -f spec.yaml` — REST Message + function + Business Rule scaffold
+- [x] Integration tests: codegen (TS/py/Go), catalog, kb, widget CRUD, log-watch, phase5-smoke composite
+- [x] Instance wizard offers OAuth Authorization Code as the recommended option
+- [x] Fixed factory filter so `widget create --id` / `--name` don't get stripped as housekeeping
+
+## Phase 6 ideas (not committed)
+
 - [ ] `sn rest-api scaffold --from openapi.yaml` — generate Scripted REST APIs from OpenAPI
-- [ ] `sn webhook create` — Business Rule + REST Message + retry in one command
-- [ ] `sn codegen python` / `sn codegen go` — same codegen for other target languages
-- [ ] OS keyring secret storage (macOS Keychain, libsecret, Windows credman)
-- [ ] AMB record-watcher (websocket-native) — replaces polling in `sn watch`
-- [ ] Integration tests covering each Phase 3 + 4 domain
+- [ ] AMB websocket watch — replaces polling in `sn watch`, true push
 - [ ] Interactive TUI mode for `sn incident list` — live refresh, keyboard shortcuts
 - [ ] `sn edit <domain> <id>` — open $EDITOR on relevant fields, diff-apply on save
 - [ ] Approvals workflow UI (`sn change pending-approvals --mine`)
+- [ ] OpenTelemetry tracing/spans on long-running ops
+- [ ] Secret rotation reminder (OAuth refresh token age warning)
+- [ ] `sn codegen openapi <table>` — emit OpenAPI schema for the Table API of a given record type

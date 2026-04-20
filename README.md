@@ -143,22 +143,80 @@ sn table query sys_user --query "active=true" --sn-fields user_name,email --limi
 
 If you're building a mobile app, service, or integration that *uses* SN as a data/workflow backend — not administering it — the CLI has a few superpowers tailored for that workflow.
 
-### 1. Generate type-safe client code
+### 1. Generate type-safe client code — TypeScript, Python, or Go
 
-`sn codegen typescript <table>` queries `sys_dictionary` + `sys_choice` + the parent-class chain, and emits a TypeScript module with:
+`sn codegen <lang> <table>` queries `sys_dictionary` + `sys_choice` + the parent-class chain, and emits a type-safe module with:
 
-- A `Record` interface with correctly-typed fields (string / number / boolean / datetime-string)
-- Choice fields as literal-union types with accompanying label maps
-- Reference fields annotated with the target table in JSDoc
+- A record type (`interface` / `BaseModel` / `struct`) with correctly-typed fields
+- Choice fields as literal unions / Enum / typed `const` blocks
+- Reference fields annotated with the target table
 - Inherited fields from the super-class chain (e.g. `Incident` includes `Task` fields)
 
 ```bash
-sn codegen typescript incident --output src/types/incident.ts
-sn codegen typescript sys_user --output src/types/user.ts
-sn codegen typescript cmdb_ci_server --output src/types/ci-server.ts
+# TypeScript (interface + union types + label maps)
+sn codegen typescript incident --out-file src/types/incident.ts
+
+# Python (Pydantic v2 BaseModel + str Enum) — requires pydantic>=2
+sn codegen python incident --out-file app/schemas/incident.py
+
+# Go (struct + json tags + typed const blocks)
+sn codegen go incident --out-file api/servicenow/incident.go
+sn codegen go cmdb_ci_server --package cmdb --out-file cmdb/server.go
 ```
 
-Your app code is suddenly type-checked against the live schema of *your* instance — no more drift between a hand-written interface and a field that got added in an update set last Tuesday.
+Your app code is type-checked against the live schema of *your* instance — no drift between a hand-written definition and a field that got added in an update set last Tuesday.
+
+### 2. OAuth login with keyring-stored tokens — no more passwords in config
+
+For production-ish use, prefer OAuth over Basic Auth:
+
+```bash
+# One-time: register an OAuth app in SN (System OAuth → Application Registry)
+# with redirect URL http://127.0.0.1:*/cb
+sn instance add                           # pick "OAuth Authorization Code + PKCE"
+sn auth login -i dev                      # opens browser, captures tokens into OS keyring
+sn auth status -i dev                     # shows current user + expiry
+sn incident list -i dev                   # uses the bearer token from keyring
+sn auth logout -i dev                     # clears the keyring entries
+```
+
+Tokens live in the macOS Keychain / GNOME Keyring / Windows Credential Manager — never in config.json. Refresh happens automatically before every call.
+
+### 3. Impersonate users to test ACLs
+
+```bash
+sn impersonate abel.tuter -- sn incident list --limit 5
+sn impersonate alice.admin -- bash        # interactive sub-shell as another user
+```
+
+Requires an OAuth profile. Admin's bearer is exchanged for the target user's bearer via `/api/now/ui/impersonate/<sys_id>`; that token is piped to the sub-command via `SN_IMPERSONATION_TOKEN_FILE`. Clean temp-file with 0600 perms; auto-cleaned on exit.
+
+### 4. Scaffold outbound webhooks declaratively
+
+```yaml
+# webhook.yaml
+name: Notify Slack on P1 incidents
+trigger:
+  table: incident
+  when: after
+  condition: priority=1^active=true
+endpoint:
+  url: https://hooks.slack.com/services/...
+  method: POST
+  headers:
+    Content-Type: application/json
+  body: |
+    {"text": "P1: ${current.number}"}
+retry:
+  attempts: 3
+  delay_seconds: 30
+```
+
+```bash
+sn webhook create -f webhook.yaml
+```
+
+Creates `sys_rest_message` + `sys_rest_message_fn` + a Business Rule that triggers it, all inside the current update-set.
 
 ### 2. Tail server-side logs
 
