@@ -16,14 +16,28 @@ export default defineLeaf({
     "display-value": {
       type: "string",
       default: "false",
-      description: "true | false | all",
+      description: "true | false | all (pass 'true' to get readable names for reference fields)",
     },
   },
   async run(ctx, args) {
     const tableName = args.table as string;
     const meta = getTableMetadata(tableName);
 
+    // Priority for sysparm_fields:
+    //   1. Explicit --sn-fields (user knows what they want)
+    //   2. Global --fields (they asked to display these columns, so fetch them)
+    //   3. Table's common_fields preset
+    //   4. Nothing (SN returns all fields)
+    const displayFields = ctx.flags.fields
+      ?.split(",")
+      .map((f) => f.trim())
+      .filter(Boolean);
+
     let fields = args["sn-fields"] as string | undefined;
+    if (!fields && displayFields && displayFields.length > 0) {
+      const withSysId = new Set(["sys_id", ...displayFields]);
+      fields = [...withSysId].join(",");
+    }
     if (!fields && meta && meta.common_fields.length > 0) {
       fields = ["sys_id", ...meta.common_fields].join(",");
     }
