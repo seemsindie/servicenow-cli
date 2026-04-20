@@ -43,6 +43,7 @@ import watch from "./watch.ts";
 import auth from "./auth/index.ts";
 import impersonate from "./impersonate.ts";
 import webhook from "./webhook/index.ts";
+import edit from "./edit.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -89,4 +90,5 @@ export const subCommands: Record<string, CommandDef> = {
   auth,
   impersonate,
   webhook,
+  edit,
 };
