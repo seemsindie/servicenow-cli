@@ -7,7 +7,7 @@
 
 ## Status
 
-Phase 3 shipped (v0.3.0). Full parity with [servicenow-mcp-server](../servicenow-mcp-server) across 35 top-level command domains.
+Phase 7 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow-mcp-server) across 35+ command domains plus build-on-SN, auth, DevOps tooling.
 
 ### Ticketing & workflow
 - `sn incident` — list, get, create, update, resolve, close, reopen, comment, work-note
@@ -51,9 +51,22 @@ Phase 3 shipped (v0.3.0). Full parity with [servicenow-mcp-server](../servicenow
 - `sn table` — generic Table API (query/get/create/update/delete) for any table
 
 ### Build-on-SN toolkit (v0.4+)
-- `sn codegen typescript <table>` — **live-schema TypeScript codegen**: emits interface + choice unions from `sys_dictionary` + `sys_choice`, walks the super_class chain for inherited fields. Type-safe client code for your app in one command.
+- `sn codegen {typescript, python, go} <table>` — **live-schema codegen** from `sys_dictionary` + `sys_choice`, walks the super_class chain for inherited fields. TS interfaces + choice unions, Pydantic v2 models, or Go structs with typed const choices.
 - `sn log tail [--follow] [--level] [--source] [--message]` — stream `syslog` like `tail -f`. Colored by level, `-f` polls, JSON/CSV output works.
 - `sn watch <table> [--query] [--interval N] [--since]` — emits new/updated records as JSONL (one per line), `--once` for a single pass. Pipe to `jq` / feed a reactive UI / trigger external automation.
+
+### Auth & admin (v0.5+)
+- `sn auth {login, logout, status}` — **OAuth 2.0 Authorization Code + PKCE** with browser handoff, tokens stored in OS keyring (macOS `security` / Linux `secret-tool` / Windows `cmdkey`), AES-256-GCM file fallback. No more admin passwords in config.
+- `sn impersonate <user> -- <cmd> [args…]` — run a sub-command as another user via SN's session-cookie impersonation. OAuth-only. Ideal for ACL testing.
+- `sn webhook create -f spec.yaml` — declarative scaffold: REST Message + function + Business Rule trigger from a YAML spec.
+
+### Dev-loop upgrades (v0.6+)
+- `sn edit <table> <id> [--field <name>]` — open a record (or one field) in `$EDITOR`, PATCH only what changed. Dirty-write protection via `sys_mod_count` re-check. Reference fields shown as raw sys_ids.
+- `sn openapi import <spec.{yaml,json}>` — scaffold a Scripted REST API + one operation per path/method from an OpenAPI 3.x spec. `--dry-run` prints the plan.
+
+### DevOps (v0.7+)
+- `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — download a completed update set. XML hits the platform `/sys_update_set.do?UNL` endpoint; JSON dumps the parent + `sys_update_xml` children via the Table API for jq/diffing.
+- `sn diff <instance-a> <instance-b> <table> [--query] [--key] [--fields]` — field-level record diff across two configured instances. Reports `onlyInA` / `onlyInB` / `different` / identical. `--key name` for portable records where cross-instance sys_ids differ.
 
 ### Output, completion, release
 - Output: `-o json | table | csv | yaml` (TTY → table, pipe → json)
@@ -286,6 +299,33 @@ Any write command (`business-rule create`, `script-include update`, etc.) accept
 
 - **Update-set binding on Basic-Auth REST is best-effort.** SN's mechanism for the "current update set" depends on a per-user browser session; Basic-Auth REST requests don't always honour the `sys_user_preference` flip the CLI performs. If records aren't landing where you expect, set the update set interactively in the browser first (with the same user), or attach records manually via `sn update-set add`. Scope binding (via concoursepicker) is more reliable.
 - **Sidecar state races.** The per-instance sidecar at `~/.config/servicenow-cli/state/<instance>.json` is a single file — parallel invocations to the same instance can clobber each other's `update-set use` / `scope set` writes. Prefer `--update-set` / `--scope` flags in automation.
+
+## Promoting changes between instances
+
+Package an update set as XML, move it to another environment, and verify the landing with a cross-instance diff.
+
+```bash
+# Export a completed update set (pipes to stdout if --out is omitted)
+sn update-set export "My Change Set" -i dev --out /tmp/my-change.xml
+
+# Import in the target (SN UI: Retrieved Update Sets → Import Update Set from XML)
+# Then preview + commit via SN's UI, or
+sn update-set commit <remote-sys-id> -i test
+
+# Verify what actually landed — field-level diff of the records you care about
+sn diff dev test incident --query "priority=1" --fields "number,short_description,state"
+
+# Portable records (script includes, business rules) have different sys_ids across
+# instances — key on name instead:
+sn diff dev test sys_script_include --key name --limit 50
+
+# JSON output for machine consumption / CI gates
+sn diff dev prod sys_script_include --key name -o json | jq '.counts'
+```
+
+`sn update-set export` also has a `--format json` mode that dumps the parent `sys_update_set` row plus every `sys_update_xml` child, useful for structural diffs / version control when you want to track a set's contents as code.
+
+> **Why no `sn update-set import`?** SN has no clean REST endpoint for XML-upload — the SN-native pattern is cross-instance retrieval (configure one instance as an "Update Source" of another), which requires SN-side config. Queued for a future release once we confirm an approach that doesn't require per-instance setup.
 
 ## Script sync workflow
 

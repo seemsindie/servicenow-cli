@@ -45,6 +45,7 @@ import impersonate from "./impersonate.ts";
 import webhook from "./webhook/index.ts";
 import edit from "./edit.ts";
 import openapi from "./openapi/index.ts";
+import diff from "./diff.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -93,4 +94,5 @@ export const subCommands: Record<string, CommandDef> = {
   webhook,
   edit,
   openapi,
+  diff,
 };

@@ -9,6 +9,7 @@ import commit from "./commit.ts";
 import clone from "./clone.ts";
 import add from "./add.ts";
 import move from "./move.ts";
+import exportCmd from "./export.ts";
 
 export default defineCommand({
   meta: { name: "update-set", description: "Manage ServiceNow update sets" },
@@ -23,5 +24,6 @@ export default defineCommand({
     clone,
     add,
     move,
+    export: exportCmd,
   },
 });
