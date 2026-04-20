@@ -50,6 +50,11 @@ Phase 3 shipped (v0.3.0). Full parity with [servicenow-mcp-server](../servicenow
 - `sn search` — natural-language → encoded query
 - `sn table` — generic Table API (query/get/create/update/delete) for any table
 
+### Build-on-SN toolkit (v0.4+)
+- `sn codegen typescript <table>` — **live-schema TypeScript codegen**: emits interface + choice unions from `sys_dictionary` + `sys_choice`, walks the super_class chain for inherited fields. Type-safe client code for your app in one command.
+- `sn log tail [--follow] [--level] [--source] [--message]` — stream `syslog` like `tail -f`. Colored by level, `-f` polls, JSON/CSV output works.
+- `sn watch <table> [--query] [--interval N] [--since]` — emits new/updated records as JSONL (one per line), `--once` for a single pass. Pipe to `jq` / feed a reactive UI / trigger external automation.
+
 ### Output, completion, release
 - Output: `-o json | table | csv | yaml` (TTY → table, pipe → json)
 - `sn completion {bash, zsh, fish}` — emits completion scripts (auto-enumerates all commands)
@@ -132,6 +137,78 @@ sn problem close PRB0040001 --close-code "Risk Accepted" --close-notes "done"
 # Natural-language search & escape hatch
 sn search "high priority incidents assigned to admin"
 sn table query sys_user --query "active=true" --sn-fields user_name,email --limit 5
+```
+
+## Using ServiceNow as a backend for your own app
+
+If you're building a mobile app, service, or integration that *uses* SN as a data/workflow backend — not administering it — the CLI has a few superpowers tailored for that workflow.
+
+### 1. Generate type-safe client code
+
+`sn codegen typescript <table>` queries `sys_dictionary` + `sys_choice` + the parent-class chain, and emits a TypeScript module with:
+
+- A `Record` interface with correctly-typed fields (string / number / boolean / datetime-string)
+- Choice fields as literal-union types with accompanying label maps
+- Reference fields annotated with the target table in JSDoc
+- Inherited fields from the super-class chain (e.g. `Incident` includes `Task` fields)
+
+```bash
+sn codegen typescript incident --output src/types/incident.ts
+sn codegen typescript sys_user --output src/types/user.ts
+sn codegen typescript cmdb_ci_server --output src/types/ci-server.ts
+```
+
+Your app code is suddenly type-checked against the live schema of *your* instance — no more drift between a hand-written interface and a field that got added in an update set last Tuesday.
+
+### 2. Tail server-side logs
+
+`sn log tail` streams `syslog` like `tail -f` — invaluable when you're iterating on a Scripted REST API or a Business Rule and need to see what `gs.info()` / `gs.error()` printed.
+
+```bash
+# One-shot, recent 50 entries
+sn log tail
+
+# Follow-mode with filters
+sn log tail --follow --level error
+sn log tail --follow --source "Business Rule" --message "my-api"
+```
+
+### 3. Stream record changes as JSONL
+
+`sn watch <table>` polls for records with `sys_updated_on >= cursor` and emits each as a JSON line. Perfect for feeding a reactive dashboard, kicking off external automation, or piping to `jq`.
+
+```bash
+# Watch new P1 incidents forever, feed to Slack
+sn watch incident --query "priority=1^active=true" --follow |
+  while read -r rec; do
+    number=$(echo "$rec" | jq -r .number)
+    curl -X POST https://slack.../webhook -d "{\"text\":\"P1: $number\"}"
+  done
+
+# One-shot since a specific time (for cron)
+sn watch incident --once --since "2026-04-20 00:00:00" > today.jsonl
+```
+
+### 4. Run tests / data loads locally
+
+```bash
+# Bulk-seed test data
+cat seed.json | sn batch create -f -
+
+# Run a server-side fix script with result polling
+sn run-script --code "gs.info('hello from ' + gs.getUserName());" --wait 15
+
+# Ad-hoc aggregation for a dashboard
+sn aggregate incident count --group-by priority -o json
+```
+
+### 5. Test as a different user
+
+Auth works as whoever is in your config. Point your client integration tests at a restricted user to validate ACLs:
+
+```bash
+sn instance add   # add a non-admin test account
+sn incident list -i test-user --limit 5    # see what they see
 ```
 
 ## Update-set workflow

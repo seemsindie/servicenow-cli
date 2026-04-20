@@ -37,6 +37,9 @@ import flow from "./flow/index.ts";
 import workflow from "./workflow/index.ts";
 import batch from "./batch/index.ts";
 import completion from "./completion/index.ts";
+import codegen from "./codegen/index.ts";
+import log from "./log/index.ts";
+import watch from "./watch.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -77,4 +80,7 @@ export const subCommands: Record<string, CommandDef> = {
   workflow,
   batch,
   completion,
+  codegen,
+  log,
+  watch,
 };

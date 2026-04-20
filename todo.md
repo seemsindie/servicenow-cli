@@ -65,10 +65,25 @@ Tracks feature work by phase.
 - **Flow Designer logic blocks are UI-only** — REST only supports basic flow skeleton + variables/stages.
 - **CI relationships** accept either a `cmdb_rel_type` sys_id or an exact name (e.g. "Parent of") — resolved by `resolve-ci.ts`.
 
-## Phase 4 (ideas, not committed)
+## Phase 4: build-on-SN toolkit (shipped, v0.4.0)
 
-- [ ] OS keyring secret storage (macOS Keychain, libsecret)
+Reframed around **developers using SN as a backend for their own apps/services**, not admins. Competitive survey (pysnow, aiosnow, PySNC, servicenow-rest-api, @servicenow/sdk) confirmed none of these gaps were filled well for external consumers.
+
+- [x] `sn codegen typescript <table>` — live-schema TS codegen: interface + choice unions + reference annotations, walks super_class chain
+- [x] `sn log tail [--follow]` — stream `syslog` with level/source/message filters, color-coded
+- [x] `sn watch <table> [--follow] [--since] [--once]` — JSONL stream of new/updated records, pipeable to jq/slack/anything
+- [x] README section "Using ServiceNow as a backend for your own app"
+
+## Phase 5 ideas (not committed)
+
+- [ ] `sn auth login` — OAuth Auth-Code + PKCE helper (local loopback, keyring storage)
+- [ ] `sn impersonate <user> -- <cmd>` — scoped impersonation for sub-commands
+- [ ] `sn rest-api scaffold --from openapi.yaml` — generate Scripted REST APIs from OpenAPI
+- [ ] `sn webhook create` — Business Rule + REST Message + retry in one command
+- [ ] `sn codegen python` / `sn codegen go` — same codegen for other target languages
+- [ ] OS keyring secret storage (macOS Keychain, libsecret, Windows credman)
+- [ ] AMB record-watcher (websocket-native) — replaces polling in `sn watch`
+- [ ] Integration tests covering each Phase 3 + 4 domain
 - [ ] Interactive TUI mode for `sn incident list` — live refresh, keyboard shortcuts
 - [ ] `sn edit <domain> <id>` — open $EDITOR on relevant fields, diff-apply on save
 - [ ] Approvals workflow UI (`sn change pending-approvals --mine`)
-- [ ] Integration tests covering each Phase 3 domain
