@@ -4,11 +4,24 @@
  * Reads access/refresh tokens from the OS keyring. If the access token is
  * expired (or about to expire), POSTs to `{instance}/oauth_token.do` with
  * `grant_type=refresh_token` and writes the rotated tokens back to keyring.
+ *
+ * When SN_IMPERSONATION_SESSION_FILE points at a valid payload for this
+ * instance, swaps bearer auth for cookie-based session auth (that's how
+ * `sn impersonate` hands off the impersonated session — SN's impersonate
+ * endpoint is session-cookie based, not OAuth-bearer based).
  */
 
+import { readFileSync, existsSync } from "fs";
 import { KEYRING_SERVICE, keyringGet, keyringSet } from "../utils/keyring.ts";
 import { logger } from "../utils/logger.ts";
 import type { AuthProvider } from "./types.ts";
+
+interface ImpersonationSession {
+  instance: string;
+  cookie: string;
+  x_user_token?: string;
+  user_sys_id?: string;
+}
 
 interface TokenResponse {
   access_token: string;
@@ -47,8 +60,28 @@ export class AuthCodeProvider implements AuthProvider {
   }
 
   async getHeaders(): Promise<Record<string, string>> {
+    const session = this.tryReadImpersonation();
+    if (session) {
+      const headers: Record<string, string> = { Cookie: session.cookie };
+      if (session.x_user_token) headers["X-UserToken"] = session.x_user_token;
+      return headers;
+    }
     const token = await this.getAccessToken();
     return { Authorization: `Bearer ${token}` };
+  }
+
+  private tryReadImpersonation(): ImpersonationSession | null {
+    const path = process.env["SN_IMPERSONATION_SESSION_FILE"];
+    if (!path || !existsSync(path)) return null;
+    try {
+      const raw = readFileSync(path, "utf-8");
+      const payload = JSON.parse(raw) as ImpersonationSession;
+      if (payload.instance !== this.instanceName) return null;
+      if (!payload.cookie) return null;
+      return payload;
+    } catch {
+      return null;
+    }
   }
 
   /**

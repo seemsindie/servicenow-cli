@@ -1,6 +1,10 @@
 import { defineLeaf } from "./_leaf.ts";
 import { resolveUserIdentifier, type ResolvableClient } from "../utils/resolve.ts";
 import { spawn } from "child_process";
+import { writeFileSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { randomBytes } from "crypto";
 import { AuthCodeProvider } from "../auth/authcode.ts";
 
 export default defineLeaf({
@@ -40,7 +44,6 @@ export default defineLeaf({
     });
     const adminHeaders = await provider.getHeaders();
 
-    // Pick up sub-command: everything after "--" in argv.
     const rawArgv = process.argv;
     const dashIdx = rawArgv.indexOf("--");
     if (dashIdx === -1 || dashIdx >= rawArgv.length - 1) {
@@ -51,18 +54,11 @@ export default defineLeaf({
     const subCmd = rawArgv[dashIdx + 1]!;
     const subArgs = rawArgv.slice(dashIdx + 2);
 
-    // Capture the admin's original user sys_id so we can revert on exit.
-    const adminSysId = await fetchCurrentUserSysId(instance.url, adminHeaders);
-    if (!adminSysId) {
-      throw new Error(
-        `Could not determine admin user sys_id (GET /api/now/ui/user/current_user) — cannot safely impersonate without knowing who to revert to.`
-      );
-    }
-
-    // Flip the OAuth session to the target user.
-    // SN's impersonate endpoint doesn't mint a new bearer — it flips the
-    // session associated with the admin's access token server-side, so
-    // subsequent calls with the same bearer run as the target user.
+    // SN's /api/now/ui/impersonate/<sys_id> creates a browser-style session
+    // with the impersonation applied and returns it via Set-Cookie. The
+    // caller's OAuth bearer session is NOT flipped. So: we capture the
+    // glide_session_store cookie here, then use cookie-based auth (with
+    // an X-UserToken CSRF token) for the sub-command.
     const resp = await fetch(
       `${instance.url}/api/now/ui/impersonate/${target.sys_id}`,
       {
@@ -78,45 +74,72 @@ export default defineLeaf({
       );
     }
 
-    // Verify the session actually flipped.
-    const afterSysId = await fetchCurrentUserSysId(instance.url, adminHeaders);
-    if (afterSysId !== target.sys_id) {
+    const cookieHeader = buildCookieHeader(resp);
+    if (!cookieHeader) {
       throw new Error(
-        `Impersonation did not take effect — /current_user still reports ${afterSysId ?? "unknown"} instead of ${target.sys_id}. ` +
-          `This instance may not support OAuth-bearer session flipping for impersonation.`
+        `Impersonation response did not include a session cookie (expected Set-Cookie: glide_session_store=...). ` +
+          `Server-side impersonation may be disabled.`
       );
     }
 
-    process.stderr.write(
-      `→ impersonating ${target.display ?? target.original} on ${instanceName} (will revert on exit)\n`
+    // Verify with cookie-only auth and pick up the CSRF token (X-UserToken).
+    const verify = await fetch(`${instance.url}/api/now/ui/user/current_user`, {
+      headers: { Cookie: cookieHeader, Accept: "application/json" },
+    });
+    if (!verify.ok) {
+      throw new Error(
+        `Verification GET /current_user with impersonated session failed (${verify.status}).`
+      );
+    }
+    const verifyData = (await verify.json()) as { result?: Record<string, unknown> };
+    const afterSysId = extractUserSysId(verifyData.result ?? {});
+    if (afterSysId !== target.sys_id) {
+      throw new Error(
+        `Impersonation did not take effect — session user is ${afterSysId ?? "unknown"} instead of ${target.sys_id}.`
+      );
+    }
+    const xUserToken = extractUserToken(verifyData.result ?? {});
+
+    const tmpPath = join(
+      tmpdir(),
+      `sn-impersonate-${randomBytes(8).toString("hex")}.json`
+    );
+    writeFileSync(
+      tmpPath,
+      JSON.stringify({
+        instance: instanceName,
+        cookie: cookieHeader,
+        x_user_token: xUserToken,
+        user_sys_id: target.sys_id,
+      }),
+      { mode: 0o600 }
     );
 
-    let reverted = false;
-    const revert = async () => {
-      if (reverted) return;
-      reverted = true;
+    process.stderr.write(
+      `→ impersonating ${target.display ?? target.original} on ${instanceName}\n`
+    );
+
+    const child = spawn(subCmd, subArgs, {
+      stdio: "inherit",
+      env: { ...process.env, SN_IMPERSONATION_SESSION_FILE: tmpPath },
+    });
+
+    const cleanup = () => {
       try {
-        await fetch(`${instance.url}/api/now/ui/impersonate/${adminSysId}`, {
-          method: "POST",
-          headers: { ...adminHeaders, Accept: "application/json" },
-        });
+        unlinkSync(tmpPath);
       } catch {
-        process.stderr.write(
-          `\nwarning: failed to revert impersonation — run \`sn auth logout -i ${instanceName} && sn auth login -i ${instanceName}\` if subsequent commands run as the wrong user.\n`
-        );
+        // best-effort
       }
     };
 
-    const child = spawn(subCmd, subArgs, { stdio: "inherit" });
-
     await new Promise<void>((resolve) => {
-      child.on("exit", async (code) => {
-        await revert();
+      child.on("exit", (code) => {
+        cleanup();
         process.exit(code ?? 0);
         resolve();
       });
-      child.on("error", async (err) => {
-        await revert();
+      child.on("error", (err) => {
+        cleanup();
         process.stderr.write(`\nimpersonate: failed to spawn '${subCmd}': ${err.message}\n`);
         process.exit(127);
       });
@@ -129,23 +152,40 @@ export default defineLeaf({
   },
 });
 
-async function fetchCurrentUserSysId(
-  instanceUrl: string,
-  headers: Record<string, string>
-): Promise<string | undefined> {
-  try {
-    const resp = await fetch(`${instanceUrl}/api/now/ui/user/current_user`, {
-      headers: { ...headers, Accept: "application/json" },
-    });
-    if (!resp.ok) return undefined;
-    const data = (await resp.json()) as { result?: Record<string, unknown> };
-    const r = data.result ?? {};
-    for (const key of ["user_sys_id", "user_id", "sys_id"] as const) {
-      const v = r[key];
-      if (typeof v === "string" && v.length > 0) return v;
-    }
-    return undefined;
-  } catch {
-    return undefined;
+function buildCookieHeader(resp: Response): string | null {
+  // Node/Undici folds Set-Cookie into getSetCookie() as an array.
+  const setCookies = (resp.headers as unknown as { getSetCookie?: () => string[] })
+    .getSetCookie?.();
+  const cookies: string[] = setCookies ?? [];
+  if (cookies.length === 0) {
+    const raw = resp.headers.get("set-cookie");
+    if (raw) cookies.push(...raw.split(/,\s*(?=[^=;]+=)/));
   }
+  const keep: string[] = [];
+  for (const c of cookies) {
+    const first = c.split(";")[0]?.trim();
+    if (!first) continue;
+    const name = first.split("=")[0];
+    if (!name) continue;
+    if (/^(glide_|JSESSIONID|BIGipServer)/i.test(name)) {
+      keep.push(first);
+    }
+  }
+  return keep.length > 0 ? keep.join("; ") : null;
+}
+
+function extractUserSysId(r: Record<string, unknown>): string | undefined {
+  for (const key of ["user_sys_id", "user_id", "sys_id"] as const) {
+    const v = r[key];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return undefined;
+}
+
+function extractUserToken(r: Record<string, unknown>): string | undefined {
+  for (const key of ["user_token", "g_ck", "x_user_token"] as const) {
+    const v = r[key];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return undefined;
 }
