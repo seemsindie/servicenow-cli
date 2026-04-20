@@ -202,7 +202,10 @@ async function startCallbackServer(port: number, path: string): Promise<{
         state: url.searchParams.get("state") ?? undefined,
         error: url.searchParams.get("error") ?? undefined,
       };
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        Connection: "close",
+      });
       res.end(`<!doctype html><html><body style="font-family:sans-serif">
         <h2>✓ You may close this tab</h2>
         <p>servicenow-cli received the OAuth callback. Return to your terminal.</p>
@@ -227,7 +230,10 @@ async function startCallbackServer(port: number, path: string): Promise<{
           setTimeout(() => rej(new Error(`OAuth callback timed out after ${timeoutMs}ms`)), timeoutMs)
         ),
       ]),
-    close: () => server.close(),
+    close: () => {
+      server.closeAllConnections?.();
+      server.close();
+    },
   };
 }
 
