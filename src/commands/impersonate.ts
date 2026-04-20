@@ -139,8 +139,12 @@ async function fetchCurrentUserSysId(
     });
     if (!resp.ok) return undefined;
     const data = (await resp.json()) as { result?: Record<string, unknown> };
-    const sysId = data.result?.["sys_id"];
-    return typeof sysId === "string" ? sysId : undefined;
+    const r = data.result ?? {};
+    for (const key of ["user_sys_id", "user_id", "sys_id"] as const) {
+      const v = r[key];
+      if (typeof v === "string" && v.length > 0) return v;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
