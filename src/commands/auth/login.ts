@@ -223,13 +223,19 @@ async function startCallbackServer(port: number, path: string): Promise<{
   });
 
   return {
-    awaitCallback: (timeoutMs: number) =>
-      Promise.race([
-        pending,
-        new Promise<CallbackResult>((_r, rej) =>
-          setTimeout(() => rej(new Error(`OAuth callback timed out after ${timeoutMs}ms`)), timeoutMs)
-        ),
-      ]),
+    awaitCallback: (timeoutMs: number) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<CallbackResult>((_r, rej) => {
+        timer = setTimeout(
+          () => rej(new Error(`OAuth callback timed out after ${timeoutMs}ms`)),
+          timeoutMs
+        );
+        timer.unref?.();
+      });
+      return Promise.race([pending, timeout]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
+    },
     close: () => {
       server.closeAllConnections?.();
       server.close();
