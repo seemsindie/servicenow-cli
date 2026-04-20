@@ -65,7 +65,8 @@ Phase 7 shipped (v0.7.0). Full parity with [servicenow-mcp-server](../servicenow
 - `sn openapi import <spec.{yaml,json}>` — scaffold a Scripted REST API + one operation per path/method from an OpenAPI 3.x spec. `--dry-run` prints the plan.
 
 ### DevOps (v0.7+)
-- `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — download a completed update set. XML hits the platform `/sys_update_set.do?UNL` endpoint; JSON dumps the parent + `sys_update_xml` children via the Table API for jq/diffing.
+- `sn export <table> [id] [--query Q] [--out PATH]` — **generic XML export** via SN's platform `/{table}.do?UNL` endpoint (same as the UI's "Export to XML" action). Works for every table: `sys_update_set`, `oauth_entity`, `sp_widget`, `sys_script_include`, etc. Single sys_id → one record; pass `--query` to export many.
+- `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — ergonomic shortcut over `sn export sys_update_set`: resolves by name, warns on non-Complete state, offers a structured `--format json` mode that dumps the parent + `sys_update_xml` children via the Table API.
 - `sn diff <instance-a> <instance-b> <table> [--query] [--key] [--fields]` — field-level record diff across two configured instances. Reports `onlyInA` / `onlyInB` / `different` / identical. `--key name` for portable records where cross-instance sys_ids differ.
 
 ### Output, completion, release
@@ -307,6 +308,11 @@ Package an update set as XML, move it to another environment, and verify the lan
 ```bash
 # Export a completed update set (pipes to stdout if --out is omitted)
 sn update-set export "My Change Set" -i dev --out /tmp/my-change.xml
+
+# Or use the generic exporter for any table — same platform endpoint (`.do?UNL`)
+sn export sys_update_set <sys_id> -i dev --out /tmp/my-change.xml
+sn export oauth_entity <sys_id> -i dev > /tmp/my-oauth-app.xml
+sn export sys_script_include --query "nameLIKEMyUtil" -i dev > /tmp/my-utils.xml
 
 # Import in the target (SN UI: Retrieved Update Sets → Import Update Set from XML)
 # Then preview + commit via SN's UI, or

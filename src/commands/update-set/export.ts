@@ -1,5 +1,6 @@
 import { defineLeaf } from "../_leaf.ts";
 import { writeFileSync } from "fs";
+import { fetchUnlXml } from "../../utils/unl-export.ts";
 import type { ServiceNowClient } from "../../client/index.ts";
 
 export default defineLeaf({
@@ -38,16 +39,7 @@ export default defineLeaf({
     }
 
     if (format === "xml") {
-      const resp = await client.requestRaw(
-        "GET",
-        `/sys_update_set.do?UNL&sysparm_query=sys_id=${encodeURIComponent(set.sys_id)}`
-      );
-      const xml = await resp.text();
-      if (!xml.trim().startsWith("<?xml") && !xml.trim().startsWith("<unload")) {
-        throw new Error(
-          `Unexpected response from /export_update_set.do — first 200 chars: ${xml.slice(0, 200)}`
-        );
-      }
+      const xml = await fetchUnlXml(client, "sys_update_set", `sys_id=${set.sys_id}`);
       writeOrPipe(outPath, xml, `${safeSlug(set.name)}.xml`);
       if (outPath) {
         process.stderr.write(`→ wrote ${xml.length} bytes to ${outPath}\n`);
