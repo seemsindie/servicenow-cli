@@ -1,0 +1,45 @@
+openapi: 3.0.0
+info:
+  title: Petstore
+  description: A sample API demonstrating sn openapi import.
+  version: 1.0.0
+servers:
+  - url: http://petstore.example.com/api
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: How many pets to return
+      responses:
+        '200':
+          description: An array of pets
+    post:
+      operationId: createPet
+      summary: Create a pet
+      responses:
+        '201':
+          description: Created
+  /pets/{petId}:
+    get:
+      operationId: showPetById
+      summary: Fetch one pet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: ID of the pet to fetch
+      responses:
+        '200':
+          description: A pet
+    delete:
+      operationId: deletePet
+      summary: Remove a pet
+      parameters:
+        - name: petId
+          in: path
+          required: true
