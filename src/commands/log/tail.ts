@@ -1,6 +1,8 @@
 import { defineLeaf } from "../_leaf.ts";
 import { output } from "../../formatters/index.ts";
 import { joinQueries } from "../../utils/query.ts";
+import { pollLoop } from "../../utils/poll-factory.ts";
+import { formatSnDateTime, parseSnDateTime } from "../../utils/sn-datetime.ts";
 
 const LEVEL_MAP: Record<string, string> = {
   // syslog.level integer codes (newer instances):
@@ -86,13 +88,15 @@ export default defineLeaf({
 
     // Follow mode — stream new records
     const pollMs = Math.max(1000, (parseInt(args.interval as string, 10) || 3) * 1000);
-    const seen = new Set<string>();
-    let cursor = Date.now() - 60_000; // start 60s back
+    let cursor = Date.now() - 60_000;
 
     process.stderr.write(`[tail] following syslog (poll ${pollMs}ms) — Ctrl-C to stop\n`);
 
-    const poll = async () => {
-      try {
+    await pollLoop<Record<string, unknown>>({
+      label: "tail",
+      intervalMs: pollMs,
+      keyOf: (rec) => (typeof rec["sys_id"] === "string" ? rec["sys_id"] : undefined),
+      tick: async () => {
         const result = await client.queryTable("syslog", {
           sysparm_query: buildQuery(cursor),
           sysparm_fields: "sys_id,sys_created_on,level,source,source_class,source_sys_id,message",
@@ -100,59 +104,21 @@ export default defineLeaf({
           sysparm_display_value: "true",
           sysparm_exclude_reference_link: "true",
         });
-        // Emit oldest-first for natural tail ordering
-        for (const rec of result.records.slice().reverse()) {
-          const id = rec["sys_id"];
-          if (typeof id !== "string" || seen.has(id)) continue;
-          seen.add(id);
-          process.stdout.write(formatRow(rec, ctx.color) + "\n");
-        }
-        // Advance cursor to latest created_on we've processed
+        // Advance cursor to the latest (first, since ORDERBYDESC) created_on
         const latest = result.records[0]?.["sys_created_on"];
         if (typeof latest === "string") {
           const parsed = parseSnDateTime(latest);
-          if (parsed) cursor = parsed + 1; // +1ms to avoid dup
+          if (parsed) cursor = parsed + 1;
         }
-      } catch (err) {
-        process.stderr.write(
-          `[tail] poll error: ${err instanceof Error ? err.message : String(err)}\n`
-        );
-      }
-    };
-
-    const interval = setInterval(() => void poll(), pollMs);
-    const cleanup = () => {
-      clearInterval(interval);
-      process.stderr.write("\n[tail] stopped\n");
-      process.exit(0);
-    };
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
-
-    await poll(); // first tick immediate
-    await new Promise<void>(() => {}); // block forever
+        // Emit oldest-first for natural tail ordering
+        return result.records.slice().reverse();
+      },
+      onItem: (rec) => {
+        process.stdout.write(formatRow(rec, ctx.color) + "\n");
+      },
+    });
   },
 });
-
-function formatSnDateTime(d: Date): string {
-  // ServiceNow format: YYYY-MM-DD HH:MM:SS (UTC)
-  const iso = d.toISOString();
-  return iso.slice(0, 19).replace("T", " ");
-}
-
-function parseSnDateTime(s: string): number | null {
-  // "2026-04-20 08:40:23" → epoch ms (UTC)
-  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(s);
-  if (!m) return null;
-  return Date.UTC(
-    +m[1]!,
-    +m[2]! - 1,
-    +m[3]!,
-    +m[4]!,
-    +m[5]!,
-    +m[6]!
-  );
-}
 
 const ANSI = {
   dim: "\x1b[2m",
