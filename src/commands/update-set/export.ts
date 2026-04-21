@@ -39,10 +39,26 @@ export default defineLeaf({
     }
 
     if (format === "xml") {
-      const xml = await fetchUnlXml(client, "sys_update_set", `sys_id=${set.sys_id}`);
-      writeOrPipe(outPath, xml, `${safeSlug(set.name)}.xml`);
+      // Build a proper retrieval-shaped bundle: one <sys_remote_update_set>
+      // wrapper (renamed from sys_update_set) + every <sys_update_xml>
+      // child in a single <unload> envelope. That's the format SN's
+      // "Import Update Set from XML" accepts via /sys_upload.do.
+      const parentXml = await fetchUnlXml(
+        client,
+        "sys_update_set",
+        `sys_id=${set.sys_id}`
+      );
+      const childrenXml = await fetchUnlXml(
+        client,
+        "sys_update_xml",
+        `update_set=${set.sys_id}`
+      );
+      const bundle = bundleForImport(parentXml, childrenXml);
+      writeOrPipe(outPath, bundle, `${safeSlug(set.name)}.xml`);
       if (outPath) {
-        process.stderr.write(`→ wrote ${xml.length} bytes to ${outPath}\n`);
+        process.stderr.write(
+          `→ wrote ${bundle.length} bytes to ${outPath} (parent + ${countChildren(childrenXml)} child row(s))\n`
+        );
       }
       return;
     }
@@ -118,4 +134,54 @@ function writeOrPipe(outPath: string | undefined, body: string, _defaultName: st
 
 function safeSlug(name: string): string {
   return (name || "update-set").replace(/[^a-zA-Z0-9_-]+/g, "_").toLowerCase();
+}
+
+/**
+ * Combine a parent <sys_update_set> UNL dump + a children <sys_update_xml>
+ * UNL dump into one <unload> envelope SN's Import-from-XML accepts.
+ *
+ * Steps:
+ *   1. Extract the <sys_update_set> element from the parent dump and rename
+ *      its outer tag to <sys_remote_update_set>. That's the wrapper SN's
+ *      upload processor expects for retrieved sets.
+ *   2. Normalise the child dump's state to "loaded" (the state a newly
+ *      retrieved set ships with).
+ *   3. Extract every <sys_update_xml>…</sys_update_xml> block from the
+ *      children dump.
+ *   4. Wrap [parent, ...children] in a single <unload> with a fresh date.
+ */
+export function bundleForImport(parentXml: string, childrenXml: string): string {
+  const parentMatch =
+    /<sys_update_set\b[^>]*>([\s\S]*?)<\/sys_update_set>/i.exec(parentXml);
+  if (!parentMatch) {
+    throw new Error(
+      "Couldn't find <sys_update_set> block in parent export. Aborting."
+    );
+  }
+  let parentInner = parentMatch[1] ?? "";
+  // Force state = loaded so the target instance treats it as a freshly
+  // retrieved set ready for preview.
+  parentInner = parentInner.replace(
+    /<state>[^<]*<\/state>/i,
+    "<state>loaded</state>"
+  );
+
+  const children =
+    childrenXml.match(/<sys_update_xml\b[\s\S]*?<\/sys_update_xml>/gi) ?? [];
+
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const lines: string[] = [];
+  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+  lines.push(`<unload unload_date="${now}">`);
+  lines.push(
+    `<sys_remote_update_set action="INSERT_OR_UPDATE">${parentInner}</sys_remote_update_set>`
+  );
+  for (const child of children) lines.push(child);
+  lines.push(`</unload>`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+function countChildren(childrenXml: string): number {
+  return (childrenXml.match(/<sys_update_xml\b/gi) ?? []).length;
 }

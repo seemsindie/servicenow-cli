@@ -1,5 +1,6 @@
 import type { AuthProvider } from "../auth/types.ts";
 import { logger } from "../utils/logger.ts";
+import { loadSessionCookies } from "../auth/session-cookies.ts";
 import { mapResponseError, type ServiceNowError } from "./errors.ts";
 import type {
   SNListResponse,
@@ -130,6 +131,72 @@ export class ServiceNowClient {
   ): Promise<Response> {
     const url = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
     return this.request(method, url, body, opts);
+  }
+
+  /**
+   * Request with web-session cookies (captured by `sn auth session-login`)
+   * instead of the normal AuthProvider headers. Required for SN's UI-tier
+   * endpoints — `/sys_upload.do`, `/sys_update_set.do?UNL`, etc. — which
+   * reject bearer/basic auth outright.
+   *
+   * Throws a clear "run `sn auth session-login` first" if no session is
+   * stashed for the instance (or the stash has expired).
+   *
+   * Accepts FormData for multipart uploads; for multipart, let fetch set
+   * the Content-Type itself (including the boundary) by omitting the
+   * `contentType` option.
+   */
+  async requestWithSession(
+    method: string,
+    path: string,
+    opts: {
+      instanceName: string;
+      body?: FormData | Blob | ArrayBuffer | ArrayBufferView | string;
+      contentType?: string;
+      timeoutMs?: number;
+      followRedirects?: boolean;
+    }
+  ): Promise<Response> {
+    const session = await loadSessionCookies(opts.instanceName);
+    if (!session) {
+      throw new Error(
+        `No web-session cookies stashed for "${opts.instanceName}" — run ` +
+          `\`sn auth session-login -i ${opts.instanceName}\` first. ` +
+          `This endpoint requires the browser-style session that /login.do mints.`
+      );
+    }
+
+    const url = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
+    const headers: Record<string, string> = {
+      Cookie: session.cookie,
+      Accept: "application/json",
+    };
+    if (session.x_user_token) headers["X-UserToken"] = session.x_user_token;
+    if (opts.contentType) headers["Content-Type"] = opts.contentType;
+
+    const timeoutMs = opts.timeoutMs ?? this.requestTimeoutMs;
+    logger.debug(
+      `${method} ${url} (session — cookies + x-usertoken)`
+    );
+    let response: Response;
+    try {
+      const init: RequestInit = {
+        method,
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+        redirect: opts.followRedirects === false ? "manual" : "follow",
+      };
+      if (opts.body !== undefined) (init as unknown as { body?: unknown }).body = opts.body;
+      response = await fetch(url, init);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        throw new Error(
+          `Request timed out after ${Math.round(timeoutMs / 1000)}s: ${method} ${url}.`
+        );
+      }
+      throw err;
+    }
+    return response;
   }
 
   /**

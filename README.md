@@ -99,7 +99,8 @@
 
 ### DevOps
 - `sn export <table> [id] [--query Q] [--out PATH]` — **generic XML export** via SN's platform `/{table}.do?UNL` endpoint (same as the UI's "Export to XML" action). Works for every table: `sys_update_set`, `oauth_entity`, `sp_widget`, `sys_script_include`, etc. Single sys_id → one record; pass `--query` to export many.
-- `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — ergonomic shortcut over `sn export sys_update_set`: resolves by name, warns on non-Complete state, offers a structured `--format json` mode that dumps the parent + `sys_update_xml` children via the Table API.
+- `sn update-set export <id-or-name> [--out PATH] [--format xml|json]` — packages an update set as the retrieval-shaped XML SN's Import-from-XML accepts: `<sys_remote_update_set>` wrapper + every `<sys_update_xml>` child. Also offers a structured `--format json` mode for jq/diffing.
+- `sn update-set import <xml>` — uploads the XML to the target instance as a Retrieved Update Set (state=loaded). Requires `sn auth session-login -i <instance>` first (the SN endpoint is web-session gated).
 - `sn diff <instance-a> <instance-b> <table> [--query] [--key] [--fields]` — field-level record diff across two configured instances. Reports `onlyInA` / `onlyInB` / `different` / identical. `--key name` for portable records where cross-instance sys_ids differ.
 
 ### Output, completion, release
@@ -360,8 +361,16 @@ Any write command (`business-rule create`, `script-include update`, etc.) accept
 Package an update set as XML, move it to another environment, and verify the landing with a cross-instance diff.
 
 ```bash
-# Export a completed update set (pipes to stdout if --out is omitted)
+# Export a completed update set (parent + all sys_update_xml children, in
+# the retrieval-shape SN's Import-from-XML accepts).
 sn update-set export "My Change Set" -i dev --out /tmp/my-change.xml
+
+# Import on the target instance (requires `sn auth session-login -i prod`
+# first — the endpoint is web-session gated).
+sn auth session-login -i prod
+sn update-set import /tmp/my-change.xml -i prod
+# → creates a sys_remote_update_set record in state=loaded, returns its sys_id.
+# Preview + commit via the SN UI (Retrieved Update Sets → Preview → Commit).
 
 # Or use the generic exporter for any table — same platform endpoint (`.do?UNL`)
 sn export sys_update_set <sys_id> -i dev --out /tmp/my-change.xml
