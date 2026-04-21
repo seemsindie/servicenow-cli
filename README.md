@@ -80,6 +80,7 @@
 
 ### Auth & admin
 - `sn auth {login, logout, status}` — **OAuth 2.0 Authorization Code + PKCE** with browser handoff, tokens stored in OS keyring (macOS `security` / Linux `secret-tool` / Windows `cmdkey`), AES-256-GCM file fallback.
+- `sn auth {session-login, session-logout}` — form-login escape hatch for features ServiceNow gates on a web session (currently: AMB subscribe). Prompts for username/password, POSTs `/login.do`, stashes the web-session cookies in the keyring for ~30 min. Credentials themselves are never stored.
 - `sn impersonate <user> -- <cmd> [args…]` — run a sub-command as another user via SN's session-cookie impersonation. OAuth-only. Ideal for ACL testing.
 - `sn webhook create -f spec.yaml` — declarative scaffold: REST Message + function + Business Rule trigger from a YAML spec.
 
@@ -386,33 +387,50 @@ sn diff dev prod sys_script_include --key name -o json | jq '.counts'
 
 > **Why no `sn update-set import`?** SN has no clean REST endpoint for XML-upload — the SN-native pattern is cross-instance retrieval (configure one instance as an "Update Source" of another), which requires SN-side config. Queued for a future release once we confirm an approach that doesn't require per-instance setup.
 
-### Real-time events via AMB (experimental)
+### Real-time events via AMB
 
-ServiceNow's Asynchronous Message Bus (CometD long-poll) can stream record changes with near-zero latency instead of polling. `sn watch --backend amb` subscribes to an AMB channel; `sn amb install-publisher <table>` scaffolds the SN-side pieces (Business Rule + `sys_amb_processor` registration).
+ServiceNow's Asynchronous Message Bus (CometD long-poll) streams record changes to subscribers the moment they happen — no polling overhead.
 
 ```bash
-# One-time SN-side setup — queues a background script that creates a Business
-# Rule for <table> + registers the channel via sys_amb_processor.
-sn amb install-publisher incident -i dev
+# 1. One-time SN-side setup: scaffolds sys_amb_processor (channel
+#    registration) + a Business Rule that publishes record changes for
+#    <table> to /sn-cli/record/<table>. Idempotent; pass --force to
+#    overwrite the BR after upgrading sn-cli.
+sn amb install-publisher problem -i dev
 
-# Subscribe to record-change events (near-zero latency on a configured instance)
-sn watch incident --backend amb -i dev
+# 2. Subscribe to record-change events
+sn amb subscribe /sn-cli/record/problem -i dev
+#   OR via the watch command (same output format as the polling backend):
+sn watch problem --backend amb -i dev
 
-# Or subscribe to any channel directly
-sn amb subscribe /sn-cli/record/incident -i dev
-sn amb subscribe /some/other/channel -i dev --path /cometd   # if /amb returns 404
+# 3. In another shell, make any change to a problem → subscriber prints
+#    the event within ~1s:
+sn problem update <sys_id> --set "short_description=push test" -i dev
 
-# Publish a test event (via sys_trigger; the subscribe side should receive it)
-sn amb publish /debug/test '{"hello":"world"}' -i dev
+# 4. Publish a raw event (useful for debugging subscribers)
+sn amb publish /sn-cli/record/problem '{"hello":"amb"}' -i dev
 ```
 
-**Known limitations:**
+**Authentication**: AMB requires a web session (cookie-based), not the OAuth bearer that powers the rest of the CLI. Basic-auth instances work transparently — `sn amb` uses basic-auth credentials to obtain a session automatically. OAuth-authcode instances need an explicit session-login first:
 
-- `sys_amb_processor` is ACL-locked against direct Table API writes, so `install-publisher` shells its work through a `sys_trigger` background script that runs as the system user. On some instances the ACL blocks that too — when that happens the trigger logs `[sn-cli install] processor insert returned null` to `syslog` and an admin has to create the processor manually in the UI (Channel Processor > New, `channel_name = /sn-cli/record/<table>`, `public = true`).
-- Subscriptions to newly-registered channels may be rejected with `404::message_deleted` until the instance refreshes its channel cache. On a fresh install this sometimes takes a minute; on some PDIs it needs an admin intervention (node restart or `cache.do` flush).
-- AMB's auth model in the SN UI is session-cookie + X-UserToken (CSRF). Bearer/basic auth works for `/amb/handshake` and `/amb/connect`, but if your instance enforces stricter AMB auth you'll see subscribe rejections. Using the session-cookie handoff pattern from `sn impersonate` is a possible future fix.
+```bash
+sn auth session-login -i dev           # prompts for user/pass; ~30 min session
+sn amb subscribe /sn-cli/record/problem -i dev
+sn auth session-logout -i dev          # clear when done
+```
 
-When it works it's fast and clean. When it doesn't, fall back to `sn watch` (polling) — same flags, different backend.
+Credentials from `session-login` are **never stored** — only the resulting session cookies + CSRF token, in the OS keyring, with a 30-minute TTL.
+
+**How it works (for the curious)**:
+
+- `install-publisher` shells through a `sys_trigger` background script because `sys_amb_processor` is ACL-locked against REST writes. The trigger runs as system user and creates two records: the channel processor (enables subscribe authorization) and a Business Rule (writes `sys_amb_message` rows on record changes).
+- `publish` does the same — a background script inserts directly into `sys_amb_message` because SN's scripted publish APIs (`sn_ws.AMBClient`, `GlideChannelAMB`, etc.) aren't exposed on all instances. The direct-table insert is the one reliable mechanism.
+- `subscribe` does a CometD handshake, captures the `BAYEUX_BROWSER` cookie for node affinity, and loops `/amb/connect` with cookie + `X-UserToken` auth.
+
+**Known limitations**:
+
+- Some locked-down instances block the `sys_amb_processor` insert even from a background script. When that happens the trigger logs `processor insert returned null` and an admin has to create the processor record manually in the UI (System Definition → AMB → Channel Processors → New, `channel_name = /sn-cli/record/<table>`, `public = true`).
+- Sessions expire after ~30 minutes of inactivity. Re-run `session-login` when subscribe starts returning `404::message_deleted` again.
 
 ### Use `sn` as an MCP server
 

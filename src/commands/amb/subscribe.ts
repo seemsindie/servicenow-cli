@@ -38,6 +38,7 @@ export default defineLeaf({
     const client = new AmbClient({
       baseUrl: instance.url,
       auth,
+      instanceName,
       path: args.path as string,
       connectTimeoutMs: Math.max(
         5_000,

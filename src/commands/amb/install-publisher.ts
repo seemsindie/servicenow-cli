@@ -18,6 +18,11 @@ export default defineLeaf({
       type: "string",
       description: "Business Rule name (default: `sn-cli publisher: <table>`)",
     },
+    force: {
+      type: "boolean",
+      description:
+        "Update the Business Rule script even if it already exists (use after upgrading sn-cli).",
+    },
     "update-set": { type: "string" },
     scope: { type: "string" },
     "no-apply-state": { type: "boolean" },
@@ -54,7 +59,12 @@ export default defineLeaf({
       }),
     ]);
 
-    if (brExisting.records.length > 0 && procExisting.records.length > 0) {
+    const force = !!args.force;
+    if (
+      brExisting.records.length > 0 &&
+      procExisting.records.length > 0 &&
+      !force
+    ) {
       output(
         ctx,
         {
@@ -68,6 +78,7 @@ export default defineLeaf({
             channel,
           },
           subscribe_hint: `sn amb subscribe ${channel} -i ${instanceArg}`,
+          hint: "Pass --force to overwrite the Business Rule script (needed after upgrading sn-cli).",
         },
         { single: true }
       );
@@ -81,7 +92,7 @@ export default defineLeaf({
     // The BR (sys_script) is also created in the same script to keep
     // everything transactional — we don't want a processor without its
     // publisher, or vice versa.
-    const script = buildInstallScript(table, brName);
+    const script = buildInstallScript(table, brName, force);
     const now = new Date();
     now.setSeconds(now.getSeconds() + 1);
     const nextAction = now.toISOString().replace("T", " ").replace(/\..*/, "");
@@ -116,11 +127,16 @@ export default defineLeaf({
  * Business Rule. Runs as system user via sys_trigger, bypassing ACLs.
  * Self-deletes on completion.
  */
-export function buildInstallScript(table: string, brName: string): string {
+export function buildInstallScript(
+  table: string,
+  brName: string,
+  force = false
+): string {
   const channel = channelFor(table);
   const publisherScript = buildPublisherScript(table);
   return `try {
   var channel = ${JSON.stringify(channel)};
+  var force = ${force ? "true" : "false"};
 
   // 1. sys_amb_processor — register the channel for subscribe authorization
   var procGR = new GlideRecord('sys_amb_processor');
@@ -154,7 +170,19 @@ export function buildInstallScript(table: string, brName: string): string {
   var brId;
   if (brGR.next()) {
     brId = brGR.getUniqueValue();
-    gs.info('[sn-cli install] BR already exists: ' + brId);
+    if (force) {
+      brGR.setValue('script', ${JSON.stringify(publisherScript)});
+      brGR.setValue('collection', ${JSON.stringify(table)});
+      brGR.setValue('when', 'after');
+      brGR.setValue('action_insert', true);
+      brGR.setValue('action_update', true);
+      brGR.setValue('active', true);
+      brGR.setValue('advanced', true);
+      brGR.update();
+      gs.info('[sn-cli install] BR script updated: ' + brId);
+    } else {
+      gs.info('[sn-cli install] BR already exists: ' + brId + ' (pass --force to update script)');
+    }
   } else {
     brGR.initialize();
     brGR.setValue('name', ${JSON.stringify(brName)});
@@ -180,10 +208,12 @@ export function channelFor(table: string): string {
 }
 
 /**
- * Build the Business Rule script body. The server-side API used
- * (`sn_ws.AMBClient.publishToChannel`) is the documented approach on
- * modern SN releases. If an instance doesn't have it, users can edit the
- * generated BR by hand.
+ * Build the Business Rule script body.
+ *
+ * Publish via direct sys_amb_message insert — the only reliable way across
+ * SN versions. Scripting wrappers like sn_ws.AMBClient / GlideChannelAMB
+ * aren't exposed on vanilla PDIs; sys_amb_message IS the cometd router's
+ * queue and a row inserted there gets broadcast to subscribed clients.
  */
 export function buildPublisherScript(table: string): string {
   const channel = channelFor(table);
@@ -198,18 +228,14 @@ export function buildPublisherScript(table: string): string {
       sys_updated_on: current.getValue('sys_updated_on'),
       sys_updated_by: current.getValue('sys_updated_by')
     };
-    // Preferred (modern SN): sn_ws.AMBClient.publishToChannel
-    if (typeof sn_ws !== 'undefined' && sn_ws.AMBClient && sn_ws.AMBClient.publishToChannel) {
-      sn_ws.AMBClient.publishToChannel(${JSON.stringify(channel)}, payload);
-      return;
-    }
-    // Fallback: GlideChannelAMB (older releases)
-    if (typeof GlideChannelAMB !== 'undefined') {
-      var amb = new GlideChannelAMB();
-      amb.publish(${JSON.stringify(channel)}, JSON.stringify(payload));
-      return;
-    }
-    gs.error('[sn-cli publisher] no known AMB publish API found on this instance');
+    var envelope = { data: payload, channel: ${JSON.stringify(channel)}, id: gs.generateGUID() };
+    var msg = new GlideRecord('sys_amb_message');
+    msg.initialize();
+    msg.setValue('channel', ${JSON.stringify(channel)});
+    msg.setValue('from_node', gs.getProperty('glide.cluster.node_id') || '');
+    msg.setValue('serialized_cometd_message', JSON.stringify(envelope));
+    var id = msg.insert();
+    if (!id) gs.error('[sn-cli publisher] sys_amb_message insert returned null on ' + ${JSON.stringify(channel)});
   } catch (ex) {
     gs.error('[sn-cli publisher] ' + ex.message);
   }

@@ -21,10 +21,10 @@ describe("amb publisher scripts", () => {
       expect(script).toContain("executeRule");
     });
 
-    it("uses both modern and legacy publish APIs with fallback", () => {
+    it("publishes via direct sys_amb_message insert (the only reliable API)", () => {
       const script = buildPublisherScript("problem");
-      expect(script).toContain("sn_ws.AMBClient.publishToChannel");
-      expect(script).toContain("GlideChannelAMB");
+      expect(script).toContain("new GlideRecord('sys_amb_message')");
+      expect(script).toContain("serialized_cometd_message");
     });
 
     it("emits a payload with operation / table / sys_id", () => {
@@ -62,16 +62,17 @@ describe("amb publisher scripts", () => {
       expect(script).toContain('"hello":"world"');
     });
 
-    it("cleans up the sys_trigger on completion", () => {
-      const script = buildPublishScript("/x", "{}");
-      expect(script).toContain("new GlideRecord('sys_trigger')");
-      expect(script).toContain("deleteRecord()");
+    it("wraps payload in the cometd envelope shape SN expects", () => {
+      const script = buildPublishScript("/x", '{"n":1}');
+      expect(script).toContain('{"n":1}');
+      expect(script).toContain("channel:");
+      expect(script).toContain("gs.generateGUID()");
     });
 
-    it("has the same dual-API publish fallback", () => {
+    it("uses direct sys_amb_message insert", () => {
       const script = buildPublishScript("/x", "{}");
-      expect(script).toContain("sn_ws.AMBClient.publishToChannel");
-      expect(script).toContain("GlideChannelAMB");
+      expect(script).toContain("new GlideRecord('sys_amb_message')");
+      expect(script).toContain("serialized_cometd_message");
     });
   });
 });

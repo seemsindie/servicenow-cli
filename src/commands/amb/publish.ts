@@ -89,29 +89,32 @@ export default defineLeaf({
 });
 
 /**
- * Build the server-side script that publishes `payload` on `channel`. Same
- * dual-API strategy as the install-publisher scaffolder: try the modern
- * `sn_ws.AMBClient` first, fall back to `GlideChannelAMB`.
+ * Build the server-side script that publishes `payload` on `channel`.
+ *
+ * SN doesn't expose a stable scripting API for AMB publish across versions
+ * (sn_ws.AMBClient / GlideChannelAMB / SNC.AMBChannel are all undefined on
+ * vanilla PDIs). The reliable path is to insert directly into
+ * sys_amb_message — that's the table the cometd router actually reads from.
+ * The subscribe-side then broadcasts the message to connected clients.
  */
 export function buildPublishScript(channel: string, payloadJson: string): string {
-  return `(function () {
-  var _triggerSysId = current.sys_id.toString();
-  try {
-    var payload = ${payloadJson};
-    if (typeof sn_ws !== 'undefined' && sn_ws.AMBClient && sn_ws.AMBClient.publishToChannel) {
-      sn_ws.AMBClient.publishToChannel(${JSON.stringify(channel)}, payload);
-    } else if (typeof GlideChannelAMB !== 'undefined') {
-      var amb = new GlideChannelAMB();
-      amb.publish(${JSON.stringify(channel)}, JSON.stringify(payload));
-    } else {
-      gs.error('[sn-cli publish] no known AMB publish API found on this instance');
-    }
-  } catch (ex) {
-    gs.error('[sn-cli publish] ' + ex.message);
-  } finally {
-    var gr = new GlideRecord('sys_trigger');
-    if (gr.get(_triggerSysId)) gr.deleteRecord();
+  return `try {
+  var channel = ${JSON.stringify(channel)};
+  var data = ${payloadJson};
+  var envelope = { data: data, channel: channel, id: gs.generateGUID() };
+  var gr = new GlideRecord('sys_amb_message');
+  gr.initialize();
+  gr.setValue('channel', channel);
+  gr.setValue('from_node', gs.getProperty('glide.cluster.node_id') || '');
+  gr.setValue('serialized_cometd_message', JSON.stringify(envelope));
+  var id = gr.insert();
+  if (!id) {
+    gs.error('[sn-cli publish] sys_amb_message insert returned null — likely ACL.');
+  } else {
+    gs.info('[sn-cli publish] published to ' + channel + ' (msg sys_id=' + id + ')');
   }
-})();
+} catch (ex) {
+  gs.error('[sn-cli publish] ' + ex.message);
+}
 `;
 }

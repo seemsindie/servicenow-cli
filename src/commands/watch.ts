@@ -127,7 +127,7 @@ async function runAmbBackend(
   const channel =
     (args["channel"] as string | undefined) ?? `/sn-cli/record/${table}`;
   const auth = createAuthProvider(instance.url, instance.auth, instanceName);
-  const client = new AmbClient({ baseUrl: instance.url, auth });
+  const client = new AmbClient({ baseUrl: instance.url, auth, instanceName });
 
   const ctrl = new AbortController();
   const cleanup = async (): Promise<void> => {

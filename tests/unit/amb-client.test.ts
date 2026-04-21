@@ -27,17 +27,31 @@ function mockFetch(responses: Array<unknown>): {
   const captured: CapturedRequest[] = [];
   let idx = 0;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    let parsedBody: unknown = undefined;
+    if (init?.body) {
+      try {
+        parsedBody = JSON.parse(String(init.body));
+      } catch {
+        parsedBody = String(init.body);
+      }
+    }
     captured.push({
       url: String(input),
-      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      body: parsedBody,
       headers: (init?.headers ?? {}) as Record<string, string>,
     });
     const payload = responses[idx++] ?? [];
+    const headersObj = {
+      get: (_name: string) => null,
+      getSetCookie: () => [],
+    } as unknown as Headers;
     return {
       ok: true,
       status: 200,
-      json: async () => payload,
-      text: async () => JSON.stringify(payload),
+      headers: headersObj,
+      json: async () => (typeof payload === "string" ? undefined : payload),
+      text: async () =>
+        typeof payload === "string" ? payload : JSON.stringify(payload),
     } as Response;
   }) as typeof fetch;
   return {
@@ -56,6 +70,8 @@ describe("AmbClient", () => {
 
   it("handshake sends the right shape and stores clientId", async () => {
     const mock = mockFetch([
+      { result: {} }, // warmup current_user
+      "<html>no g_ck here</html>", // warmup angular.do (only hit if no csrf)
       [{ channel: "/meta/handshake", successful: true, clientId: "abc123" }],
       [{ channel: "/meta/subscribe", successful: true }],
     ]);
@@ -64,9 +80,9 @@ describe("AmbClient", () => {
     const client = new AmbClient({ baseUrl: "https://x.com", auth: authStub });
     await client.start(["/my/channel"]);
 
-    expect(mock.captured).toHaveLength(2);
-    const hs = mock.captured[0]!;
-    expect(hs.url).toBe("https://x.com/amb/handshake");
+    // 2 warmup GETs + handshake + subscribe
+    expect(mock.captured).toHaveLength(4);
+    const hs = mock.captured.find((c) => c.url.endsWith("/amb/handshake"))!;
     const hsBody = hs.body as Array<Record<string, unknown>>;
     expect(Array.isArray(hsBody)).toBe(true);
     expect(hsBody[0]!["channel"]).toBe("/meta/handshake");
@@ -75,6 +91,8 @@ describe("AmbClient", () => {
 
   it("subscribe uses the stored clientId", async () => {
     const mock = mockFetch([
+      { result: {} },
+      "<html></html>",
       [{ channel: "/meta/handshake", successful: true, clientId: "xyz" }],
       [{ channel: "/meta/subscribe", successful: true }],
     ]);
@@ -83,7 +101,11 @@ describe("AmbClient", () => {
     const client = new AmbClient({ baseUrl: "https://x.com", auth: authStub });
     await client.start(["/c"]);
 
-    const subBody = mock.captured[1]!.body as Array<Record<string, unknown>>;
+    const subReq = mock.captured.find((c) => {
+      const b = c.body as Array<Record<string, unknown>> | undefined;
+      return Array.isArray(b) && b[0]?.["channel"] === "/meta/subscribe";
+    })!;
+    const subBody = subReq.body as Array<Record<string, unknown>>;
     expect(subBody[0]!["channel"]).toBe("/meta/subscribe");
     expect(subBody[0]!["clientId"]).toBe("xyz");
     expect(subBody[0]!["subscription"]).toBe("/c");
@@ -91,6 +113,8 @@ describe("AmbClient", () => {
 
   it("throws when handshake response is missing clientId", async () => {
     const mock = mockFetch([
+      { result: {} }, // warmup
+      "<html></html>",
       [{ channel: "/meta/handshake", successful: false, error: "nope" }],
     ]);
     restore = mock.restore;
@@ -101,6 +125,8 @@ describe("AmbClient", () => {
 
   it("next() yields non-/meta/* messages and filters /meta/* responses", async () => {
     const mock = mockFetch([
+      { result: {} },
+      "<html></html>",
       [{ channel: "/meta/handshake", successful: true, clientId: "c1" }],
       [{ channel: "/meta/subscribe", successful: true }],
       // first connect: one real event + one /meta/connect ack
@@ -135,6 +161,8 @@ describe("AmbClient", () => {
     // First call returns handshake success, subscribe success; after that,
     // make fetch fail so disconnect hits an error — shouldn't propagate.
     const mock = mockFetch([
+      { result: {} },
+      "<html></html>",
       [{ channel: "/meta/handshake", successful: true, clientId: "c1" }],
       [{ channel: "/meta/subscribe", successful: true }],
     ]);
@@ -159,6 +187,8 @@ describe("AmbClient", () => {
 
   it("includes auth headers in every request", async () => {
     const mock = mockFetch([
+      { result: {} },
+      "<html></html>",
       [{ channel: "/meta/handshake", successful: true, clientId: "c1" }],
       [{ channel: "/meta/subscribe", successful: true }],
     ]);
@@ -167,7 +197,10 @@ describe("AmbClient", () => {
     const client = new AmbClient({ baseUrl: "https://x.com", auth: authStub });
     await client.start(["/c"]);
 
-    for (const req of mock.captured) {
+    // Only check AMB POSTs — warmup GETs don't set Content-Type
+    const ambRequests = mock.captured.filter((c) => c.url.includes("/amb/"));
+    expect(ambRequests.length).toBeGreaterThan(0);
+    for (const req of ambRequests) {
       expect(req.headers["Authorization"]).toBe("Bearer test");
       expect(req.headers["Content-Type"]).toBe("application/json");
     }
