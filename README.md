@@ -87,6 +87,7 @@
 ### Dev loop
 - `sn edit <table> <id> [--field <name>] [--no-confirm]` — open a record (or one field) in `$EDITOR`, show a colored diff, prompt for confirmation, then PATCH only what changed. Dirty-write detection via `sys_mod_count` re-check. Reference fields get `# → Display Name` annotations.
 - `sn openapi import <spec.{yaml,json}>` — scaffold a Scripted REST API + one operation per path/method from an OpenAPI 3.x spec. `--dry-run` prints the plan.
+- `sn record-producer create -f spec.yaml` — scaffold a Record Producer (catalog item that creates records on submit). One YAML → the catalog item + all its variables + choice values + auto-generated submit script that maps form values to the target table.
 
 ### Real-time
 - `sn watch <table> --backend amb [--channel PATH]` — push-based watch via ServiceNow's AMB (CometD long-poll). Near-zero latency when channels are configured. Default backend stays `poll`. Experimental — see Workflows section for caveats.

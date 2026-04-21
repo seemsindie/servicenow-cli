@@ -1,0 +1,28 @@
+name: Report an IT outage
+table: incident
+short_description: Report an ongoing IT service disruption
+submit_message: Thanks — incident opened. Expect a follow-up shortly.
+
+variables:
+  - name: summary
+    label: What's broken?
+    type: string
+    mandatory: true
+    map_to: short_description
+
+  - name: severity
+    label: How bad is it?
+    type: choice
+    mandatory: true
+    choices: [critical, high, medium, low]
+    map_to: urgency
+
+  - name: details
+    label: Anything else?
+    type: multi_line_text
+    help_text: Optional — steps to reproduce, error messages, screenshots.
+    map_to: description
+
+extra_script: |
+  current.category = 'inquiry';
+  current.contact_type = 'self-service';

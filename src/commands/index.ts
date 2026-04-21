@@ -49,6 +49,7 @@ import diff from "./diff.ts";
 import exportCmd from "./export.ts";
 import mcp from "./mcp/index.ts";
 import amb from "./amb/index.ts";
+import recordProducer from "./record-producer/index.ts";
 
 export const subCommands: Record<string, CommandDef> = {
   instance,
@@ -101,4 +102,5 @@ export const subCommands: Record<string, CommandDef> = {
   export: exportCmd,
   mcp,
   amb,
+  "record-producer": recordProducer,
 };
