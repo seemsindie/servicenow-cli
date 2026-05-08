@@ -10,7 +10,9 @@ import { spawn } from "child_process";
 import type { ToolDef } from "./introspect.ts";
 
 export interface ExecuteOptions {
-  /** Path to the sn executable. Defaults to process.execPath. */
+  /** Node executable to spawn. Defaults to process.execPath. */
+  nodePath?: string;
+  /** Path to the sn JS entrypoint to pass as the first arg to node. Defaults to process.argv[1]. */
   snPath?: string;
   /** Per-call timeout in ms. Defaults to 60_000. */
   timeoutMs?: number;
@@ -71,11 +73,22 @@ export function runTool(
   opts: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
   const argv = buildArgv(tool, args);
-  const snPath = opts.snPath ?? process.execPath;
+  const nodePath = opts.nodePath ?? process.execPath;
+  const snPath = opts.snPath ?? process.argv[1];
   const timeoutMs = opts.timeoutMs ?? 60_000;
+  if (!snPath) {
+    return Promise.resolve({
+      argv,
+      stdout: "",
+      stderr:
+        "Could not determine sn entrypoint path (process.argv[1] is empty). Pass `snPath` explicitly.",
+      exitCode: -1,
+      timedOut: false,
+    });
+  }
 
   return new Promise<ExecuteResult>((resolve) => {
-    const child = spawn(snPath, argv, {
+    const child = spawn(nodePath, [snPath, ...argv], {
       stdio: ["ignore", "pipe", "pipe"],
       env: process.env,
     });
@@ -176,8 +189,17 @@ export function formatResult(result: ExecuteResult): {
     };
   }
 
+  // structuredContent must be a JSON object per the MCP spec. Wrap arrays
+  // and primitives so that list-returning tools (incident.list, user.list,
+  // search, etc.) don't fail SDK validation.
+  const isPlainObject =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
+  const structuredContent = isPlainObject
+    ? (parsed as object)
+    : { result: parsed };
+
   return {
     content: [{ type: "text", text: JSON.stringify(parsed, null, 2) }],
-    structuredContent: parsed as object,
+    structuredContent,
   };
 }
