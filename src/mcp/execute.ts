@@ -189,8 +189,17 @@ export function formatResult(result: ExecuteResult): {
     };
   }
 
+  // structuredContent must be a JSON object per the MCP spec. Wrap arrays
+  // and primitives so that list-returning tools (incident.list, user.list,
+  // search, etc.) don't fail SDK validation.
+  const isPlainObject =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
+  const structuredContent = isPlainObject
+    ? (parsed as object)
+    : { result: parsed };
+
   return {
     content: [{ type: "text", text: JSON.stringify(parsed, null, 2) }],
-    structuredContent: parsed as object,
+    structuredContent,
   };
 }
